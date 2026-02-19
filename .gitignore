@@ -1,0 +1,31 @@
+# Binary
+google-workspace-mcp-go
+
+# Credentials and secrets
+.env
+client_secret.json
+.credentials/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+*.test
+*.out
+coverage.html
+
+# Dev artifacts
+prd.json
+tasks/
+archive/
+
+# Claude Code
+.claude/
