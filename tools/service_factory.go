@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
 )
 
 // httpClientFunc returns an authenticated *http.Client for the given user

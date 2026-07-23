@@ -1,54 +1,55 @@
-# google-workspace-mcp-go
+# Google Workspace MCP (Go)
 
 <p align="center">
   <a href="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/ci.yml"><img src="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/release.yml"><img src="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/release.yml/badge.svg" alt="Release"></a>
   <a href="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/ci.yml"><img src="https://github.com/shotah/google-workspace-mcp-go/raw/gh-pages/badges/coverage.svg" alt="Coverage"></a>
-  <a href="https://pkg.go.dev/github.com/magks/google-workspace-mcp-go"><img src="https://pkg.go.dev/badge/github.com/magks/google-workspace-mcp-go.svg" alt="Go Reference"></a>
+  <a href="https://pkg.go.dev/github.com/shotah/google-workspace-mcp-go"><img src="https://pkg.go.dev/badge/github.com/shotah/google-workspace-mcp-go.svg" alt="Go Reference"></a>
   <img src="https://img.shields.io/github/go-mod/go-version/shotah/google-workspace-mcp-go" alt="Go version">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/shotah/google-workspace-mcp-go" alt="License"></a>
 </p>
 
-Lightweight Go implementation of the [Google Workspace MCP server](https://github.com/taylorwilsdon/google_workspace_mcp) — 137 tools across 12 Google services, single self-contained binary, designed for local AI tool use.
+<p align="center">
+  <strong>Give Claude, Cursor, and other MCP clients real access to your Google Workspace.</strong><br>
+  Gmail, Drive, Calendar, Docs, Sheets, and more — one small binary, no Python runtime.
+</p>
 
-## Why this exists
+**137 tools · 12 services · single binary · OAuth that just works**
 
-The [original Python server](https://github.com/taylorwilsdon/google_workspace_mcp) is feature-complete and production-ready, with multi-user OAuth 2.1 support, HTTP transport, and distributed session storage. It's the right choice for shared/hosted deployments.
+Drop it into your MCP config and ask your agent to search mail, clean up calendar duplicates, draft Docs, or update Sheets — with a permission surface you control (`read` / `edit` / `complete`).
 
-This Go rewrite exists for a different use case: **single-user, local AI tool use** — specifically Claude Code, Cursor, and similar MCP clients running on your machine. If you want Google Workspace integration with minimal memory usage and without the overhead of a Python runtime, this is for you.
+| Service | What agents can do |
+| ------- | ------------------ |
+| **Gmail** | Search, read, send, labels, filters |
+| **Drive** | Search, read, create, share |
+| **Calendar** | List, create, modify, delete events |
+| **Docs / Sheets / Slides** | Read and edit Workspace files |
+| **Tasks · Contacts · Chat · Forms · Apps Script · Search** | Day-to-day Workspace automation |
 
-|                      | Python (original)          | Go (this repo)        |
-| -------------------- | -------------------------- | --------------------- |
-| Tools                | 137                        | 137                   |
-| Binary/install size  | Python + virtualenv + deps | 27MB single binary    |
-| Startup time         | ~3s ([measured](BENCHMARKS.md))  | ~10ms ([measured](BENCHMARKS.md)) |
-| Runtime requirements | Python 3.10+, uv/pip       | None                  |
-| Transport            | stdio, streamable HTTP     | stdio                 |
-| Auth                 | OAuth 2.0 + OAuth 2.1      | OAuth 2.0             |
-| Multi-user           | Yes (session mgmt, Valkey) | No (single-user)      |
-| HTTP server mode     | Yes                        | No                    |
+Built for **local, single-user** AI tool use. Need multi-user OAuth 2.1 or an HTTP server? Use the original [Python server](https://github.com/taylorwilsdon/google_workspace_mcp) — same tool surface, different deployment model.
 
-**Use the Go version if**: you run MCP tools locally in Claude Code or similar, want low memory usage, and don't need multi-user or HTTP server mode.
+## Why this one
 
-**Use the Python version if**: you need multi-user support, OAuth 2.1, HTTP transport, or hosted/containerized deployment.
+- **Zero runtime** — download a binary (or `go install`) and run; no venv, no `uv`, no dependency churn
+- **Same tool catalog** — 137 tools aligned with the Python reference server
+- **Agent-friendly filters** — trim context with `--tools` / `--tool-tier`, and constrain writes with `--capability`
+- **Local-first auth** — Desktop OAuth, tokens stored under `~/.google_workspace_mcp/credentials/`
+- **Works where you already work** — Claude Code, Cursor, and any stdio MCP client
 
 ## Quick start
 
-### 1. Google Cloud project setup
+### 1. Google Cloud OAuth
 
-You need a Google Cloud project with OAuth credentials. If you already have one from using the [original Python server](https://github.com/taylorwilsdon/google_workspace_mcp), the same credentials work here.
+Reuse credentials from the [Python server](https://github.com/taylorwilsdon/google_workspace_mcp) if you already have them. Otherwise:
 
-**Create OAuth credentials:**
+1. Open [Google Cloud Console](https://console.cloud.google.com/)
+2. Create or select a project → **APIs & Services → OAuth consent screen**
+3. **Credentials → Create Credentials → OAuth Client ID → Desktop Application**
+4. Copy the **Client ID** and **Client Secret**
+5. Enable only the APIs you need:
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select an existing one)
-3. Navigate to **APIs & Services > OAuth consent screen** and configure it if you haven't already
-4. Navigate to **APIs & Services > Credentials**
-5. Click **Create Credentials > OAuth Client ID**
-6. Choose **Desktop Application** as the application type
-7. Note the **Client ID** and **Client Secret**
-
-**Enable the APIs** you need (click to enable directly):
+<details>
+<summary><strong>Enable APIs</strong> (click to expand)</summary>
 
 - [Gmail API](https://console.cloud.google.com/flows/enableapi?apiid=gmail.googleapis.com)
 - [Google Drive API](https://console.cloud.google.com/flows/enableapi?apiid=drive.googleapis.com)
@@ -61,48 +62,35 @@ You need a Google Cloud project with OAuth credentials. If you already have one 
 - [Google Chat API](https://console.cloud.google.com/flows/enableapi?apiid=chat.googleapis.com)
 - [People API (Contacts)](https://console.cloud.google.com/flows/enableapi?apiid=people.googleapis.com)
 - [Apps Script API](https://console.cloud.google.com/flows/enableapi?apiid=script.googleapis.com)
-- [Custom Search API](https://console.cloud.google.com/flows/enableapi?apiid=customsearch.googleapis.com) *(optional, for web search tools)*
+- [Custom Search API](https://console.cloud.google.com/flows/enableapi?apiid=customsearch.googleapis.com) *(optional)*
 
-You only need to enable the APIs for services you plan to use. For example, if you only need Gmail and Calendar, just enable those two.
+</details>
 
 ### 2. Install
 
-**Download a pre-built binary** (no Go required):
-
-Go to the [Releases](https://github.com/magks/google-workspace-mcp-go/releases) page and download the archive for your platform:
+**Pre-built binary** (no Go required) — grab the archive for your platform from [Releases](https://github.com/shotah/google-workspace-mcp-go/releases):
 
 | Platform | File |
-|---|---|
-| Linux (x86_64) | `google-workspace-mcp-go_*_linux_amd64.tar.gz` |
-| Linux (ARM64) | `google-workspace-mcp-go_*_linux_arm64.tar.gz` |
-| macOS (Apple Silicon) | `google-workspace-mcp-go_*_darwin_arm64.tar.gz` |
-| macOS (Intel) | `google-workspace-mcp-go_*_darwin_amd64.tar.gz` |
-| Windows (x86_64) | `google-workspace-mcp-go_*_windows_amd64.zip` |
+| --- | --- |
+| Linux x86_64 | `google-workspace-mcp-go_*_linux_amd64.tar.gz` |
+| Linux ARM64 | `google-workspace-mcp-go_*_linux_arm64.tar.gz` |
+| macOS Apple Silicon | `google-workspace-mcp-go_*_darwin_arm64.tar.gz` |
+| macOS Intel | `google-workspace-mcp-go_*_darwin_amd64.tar.gz` |
+| Windows x86_64 | `google-workspace-mcp-go_*_windows_amd64.zip` |
 
 ```bash
-# Example: Linux x86_64
 tar xzf google-workspace-mcp-go_*_linux_amd64.tar.gz
 chmod +x google-workspace-mcp-go
-mv google-workspace-mcp-go ~/.local/bin/  # or anywhere on your PATH
+mv google-workspace-mcp-go ~/.local/bin/
 ```
 
-**Or install with Go** (requires Go 1.26+):
+**Or with Go** (1.26+):
 
 ```bash
-go install github.com/magks/google-workspace-mcp-go@latest
+go install github.com/shotah/google-workspace-mcp-go@latest
 ```
 
-This puts the binary in your `$GOPATH/bin` (usually `~/go/bin`).
-
-**Or build from source**:
-
-```bash
-git clone https://github.com/magks/google-workspace-mcp-go.git
-cd google-workspace-mcp-go
-go build -o google-workspace-mcp-go .
-```
-
-### 3. Configure environment
+### 3. Environment
 
 ```bash
 export GOOGLE_OAUTH_CLIENT_ID="your-client-id.apps.googleusercontent.com"
@@ -110,31 +98,16 @@ export GOOGLE_OAUTH_CLIENT_SECRET="your-client-secret"
 export USER_GOOGLE_EMAIL="you@gmail.com"  # optional but recommended
 ```
 
-You can add these to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) so they persist across sessions.
+### 4. MCP client config
 
-### 4. Add to Claude Code
-
-The binary reads configuration from environment variables. If you already have `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `USER_GOOGLE_EMAIL` exported in the shell where Claude Code runs, you don't need to repeat them in the MCP config — the binary picks them up automatically.
-
-**Minimal config** (env vars already exported in your shell):
+**Recommended** for local agents (small tool surface + everyday edit permissions):
 
 ```json
 {
   "mcpServers": {
     "google-workspace": {
-      "command": "/path/to/google-workspace-mcp-go"
-    }
-  }
-}
-```
-
-**Explicit config** (env vars set per-server, useful if you don't want to export globally):
-
-```json
-{
-  "mcpServers": {
-    "google-workspace": {
-      "command": "/path/to/google-workspace-mcp-go",
+      "command": "google-workspace-mcp-go",
+      "args": ["--tools", "gmail drive calendar", "--tool-tier", "core", "--capability", "edit"],
       "env": {
         "GOOGLE_OAUTH_CLIENT_ID": "your-client-id.apps.googleusercontent.com",
         "GOOGLE_OAUTH_CLIENT_SECRET": "your-client-secret",
@@ -145,65 +118,81 @@ The binary reads configuration from environment variables. If you already have `
 }
 ```
 
-To reduce the number of tools loaded (useful for staying within context limits), use `--tools` and `--tool-tier`:
+If those env vars are already exported in the shell that launches your MCP client, you can omit the `env` block:
 
 ```json
 {
   "mcpServers": {
     "google-workspace": {
-      "command": "/path/to/google-workspace-mcp-go",
-      "args": ["--tools", "gmail drive calendar", "--tool-tier", "core"]
+      "command": "google-workspace-mcp-go",
+      "args": ["--tools", "gmail drive calendar", "--tool-tier", "core", "--capability", "edit"]
     }
   }
 }
 ```
 
-### 5. First run — authentication
+### 5. Authenticate once
 
-On first use, you'll need to authenticate with Google:
+Ask your assistant to call `start_google_auth` with your email. A browser opens, you approve, tokens land in `~/.google_workspace_mcp/credentials/`, and later runs refresh automatically.
 
-1. Ask your AI assistant to call the `start_google_auth` tool with your email
-2. A browser window opens to Google's OAuth consent screen
-3. Authorize the requested permissions
-4. Credentials are saved to `~/.google_workspace_mcp/credentials/your-email.json`
-5. Subsequent runs use the saved credentials automatically (tokens refresh transparently)
-
-> **Note:** `start_google_auth` requires `gmail` to be in your `--tools` list (or omit `--tools` to load all services). If you're using a restricted tool set without gmail, add it temporarily for initial auth.
+> `start_google_auth` is registered with the `gmail` service. If your `--tools` list omits gmail, add it temporarily for first-time auth.
 
 ## Configuration
 
 ### CLI flags
 
-| Flag          | Description                                                              | Default    |
-| ------------- | ------------------------------------------------------------------------ | ---------- |
-| `--tools`     | Space-separated list of services to enable (e.g. `gmail drive calendar`) | all        |
-| `--tool-tier` | Tool tier: `core`, `extended`, or `complete`                             | `complete` |
-| `--read-only` | Enable read-only mode (disable all write tools)                          | `false`    |
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--tools` | Services to enable (e.g. `gmail drive calendar`) | all |
+| `--tool-tier` | Depth: `core`, `extended`, or `complete` | `complete` |
+| `--capability` | Permissions: `read`, `edit`, or `complete` | `complete` |
+| `--read-only` | Shorthand for `--capability read` | `false` |
+
+### Tool tiers (how many tools)
+
+| Tier | Description | Count |
+| --- | --- | --- |
+| `core` | Everyday read/write per service | 45 |
+| `extended` | Core + management tools | 91 |
+| `complete` | Everything | 137 |
+
+### Capabilities (what agents may do)
+
+| Capability | Description | Count |
+| --- | --- | --- |
+| `read` | Read-only (same as `--read-only`) | 59 |
+| `edit` | Everyday create/modify/delete; blocks high-impact ops | 131 |
+| `complete` | Full surface including ownership transfer & bulk deletes | 137 |
+
+Withheld under `edit`: `transfer_drive_ownership`, `batch_delete_contacts`, `delete_task_list`, `delete_contact_group`, `delete_script_project`, `clear_completed_tasks`.
 
 ### Environment variables
 
-| Variable                        | Required | Description                                     |
-| ------------------------------- | -------- | ----------------------------------------------- |
-| `GOOGLE_OAUTH_CLIENT_ID`        | Yes      | OAuth 2.0 Client ID from Google Cloud Console   |
-| `GOOGLE_OAUTH_CLIENT_SECRET`    | Yes      | OAuth 2.0 Client Secret                         |
-| `USER_GOOGLE_EMAIL`             | No       | Default email (avoids needing it per tool call) |
-| `WORKSPACE_MCP_CREDENTIALS_DIR` | No       | Custom credential storage directory             |
-| `GOOGLE_PSE_API_KEY`            | No       | Google Programmable Search Engine API key       |
-| `GOOGLE_PSE_ENGINE_ID`          | No       | Google Programmable Search Engine ID            |
-
-### Tool tiers
-
-Tiers let you control how many tools are registered, which affects context window usage in AI assistants:
-
-| Tier       | Description                            | Tool count |
-| ---------- | -------------------------------------- | ---------- |
-| `core`     | Essential read/write tools per service | ~45        |
-| `extended` | Core + advanced management tools       | ~95        |
-| `complete` | All tools (default)                    | 137        |
+| Variable | Required | Description |
+| --- | --- | --- |
+| `GOOGLE_OAUTH_CLIENT_ID` | Yes | OAuth 2.0 Client ID |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Yes | OAuth 2.0 Client Secret |
+| `USER_GOOGLE_EMAIL` | No | Default account email |
+| `WORKSPACE_MCP_CREDENTIALS_DIR` | No | Override credential directory |
+| `GOOGLE_PSE_API_KEY` | No | Programmable Search Engine key |
+| `GOOGLE_PSE_ENGINE_ID` | No | Programmable Search Engine ID |
 
 ### Available services
 
 `gmail` `drive` `calendar` `docs` `sheets` `slides` `forms` `tasks` `chat` `contacts` `search` `appscript`
+
+## When to use Go vs Python
+
+| | This repo (Go) | [Python original](https://github.com/taylorwilsdon/google_workspace_mcp) |
+| --- | --- | --- |
+| Best for | Local Claude Code / Cursor / stdio MCP | Hosted or multi-user deployments |
+| Install | Single binary | Python 3.10+ + deps |
+| Tools | 137 | 137 |
+| Transport | stdio | stdio + streamable HTTP |
+| Auth | OAuth 2.0 (desktop) | OAuth 2.0 + OAuth 2.1 |
+| Multi-user | No | Yes (sessions, Valkey, etc.) |
+
+Same credentials work in both.
 
 ## Tools
 
@@ -265,7 +254,7 @@ Tiers let you control how many tools are registered, which affects context windo
 | `get_events`     | core     | Get events with time range |
 | `create_event`   | core     | Create calendar event      |
 | `modify_event`   | core     | Update event details       |
-| `delete_event`   | extended | Delete event               |
+| `delete_event`   | core     | Delete event               |
 | `query_freebusy` | extended | Check availability         |
 
 ### Google Docs (19 tools)
@@ -416,45 +405,30 @@ Tiers let you control how many tools are registered, which affects context windo
 
 ## Credential storage
 
-Credentials are stored as JSON files in `~/.google_workspace_mcp/credentials/` (configurable via `WORKSPACE_MCP_CREDENTIALS_DIR`). Each file is named `{email}.json` and contains the OAuth2 tokens.
+Tokens live as JSON under `~/.google_workspace_mcp/credentials/` (`{email}.json`). Directory is `0700`, files are `0600`. Override with `WORKSPACE_MCP_CREDENTIALS_DIR`.
 
-The credential directory is created with `0700` permissions. Individual credential files are created with `0600` permissions.
-
-## Testing
+## Development
 
 ```bash
-# Run all tests (~1100 tests, takes ~1 second)
 go test ./...
-
-# Run with verbose output
-go test -v ./...
-
-# Run tests for a specific service
 go test ./tools/ -run TestGmail
-go test ./tools/ -run TestDrive
-
-# Run integration tests against real Google APIs (requires credentials)
 INTEGRATION_TEST_EMAIL="you@gmail.com" go test -tags integration ./tools/
 ```
 
-The test suite has three layers, none requiring network access (except integration):
-
-- **Unit tests** — pure function tests for formatting, parsing, and helper logic
-- **Protocol tests** — send MCP `tools/call` messages through the server, verify parameter validation and error paths
-- **Mock API tests** — full handler pipeline with `httptest.Server` returning canned Google API responses
-
-Integration tests are gated behind the `integration` build tag and skip automatically when `INTEGRATION_TEST_EMAIL` is not set.
+- **Unit** — formatting, parsing, helpers
+- **Protocol** — MCP `tools/call` validation and error paths
+- **Mock API** — handlers against `httptest.Server` fixtures
+- **Integration** — real Google APIs (`integration` build tag; needs `INTEGRATION_TEST_EMAIL`)
 
 ## Limitations
 
-- **stdio transport only** — no HTTP server mode (use the [Python version](https://github.com/taylorwilsdon/google_workspace_mcp) for that)
-- **Single-user** — no multi-user session management or OAuth 2.1
-- **No attachment serving** — no HTTP endpoint for file downloads
-- **Local use only** — designed for local MCP clients, not hosted deployments
+- **stdio only** — no HTTP server mode ([Python version](https://github.com/taylorwilsdon/google_workspace_mcp) has that)
+- **Single-user** — no multi-user sessions or OAuth 2.1
+- **Local MCP clients** — not aimed at hosted multi-tenant deployments
 
 ## Acknowledgments
 
-This project is a Go rewrite of [google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp) by [Taylor Wilsdon](https://github.com/taylorwilsdon), originally written in Python. The original project provides the full-featured implementation with multi-user support, OAuth 2.1, HTTP transport, and more. Licensed under MIT.
+Go rewrite of [google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp) by [Taylor Wilsdon](https://github.com/taylorwilsdon). The Python project remains the full-featured reference for multi-user and HTTP deployments. MIT licensed.
 
 ## License
 

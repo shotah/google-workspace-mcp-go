@@ -13,7 +13,7 @@ import (
 	customsearch "google.golang.org/api/customsearch/v1"
 	"google.golang.org/api/option"
 
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // RegisterSearchTools registers all Search tools with the MCP server.

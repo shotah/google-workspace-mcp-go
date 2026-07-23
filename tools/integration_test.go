@@ -9,7 +9,7 @@ import (
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // integrationServer creates an MCP server with all tools registered using real

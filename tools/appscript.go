@@ -11,8 +11,8 @@ import (
 	drive "google.golang.org/api/drive/v3"
 	script "google.golang.org/api/script/v1"
 
-	google "github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	google "github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // RegisterAppScriptTools registers all Apps Script tools with the MCP server.

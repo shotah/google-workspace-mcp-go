@@ -3,7 +3,7 @@ package tools
 import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // tierTools maps each service to its tier breakdown (core, extended, complete).
@@ -63,9 +63,9 @@ var tierTools = map[string]map[string][]string{
 			"get_events",
 			"create_event",
 			"modify_event",
+			"delete_event", // everyday dedupe / cleanup — keep in core+edit
 		},
 		"extended": {
-			"delete_event",
 			"query_freebusy",
 		},
 		"complete": {},
@@ -241,8 +241,19 @@ var tierTools = map[string]map[string][]string{
 	},
 }
 
-// readOnlyTools is the set of tools that are allowed in --read-only mode.
-// All other tools require write scopes and are removed when --read-only is active.
+// destructiveTools are withheld unless --capability complete (or unset).
+// Everyday deletes (events, tasks, contacts, filters) stay available under edit.
+var destructiveTools = map[string]bool{
+	"transfer_drive_ownership": true,
+	"batch_delete_contacts":    true,
+	"delete_task_list":         true,
+	"delete_contact_group":     true,
+	"delete_script_project":    true,
+	"clear_completed_tasks":    true,
+}
+
+// readOnlyTools is the set of tools that are allowed in --read-only mode /
+// --capability read. All other tools require write scopes.
 var readOnlyTools = map[string]bool{
 	// Gmail
 	"search_gmail_messages":            true,
@@ -339,10 +350,30 @@ func allowedToolsForTier(tier string) map[string]bool {
 	return allowed
 }
 
-// FilterTools removes tools from the server based on tier and read-only settings.
-// It is called after RegisterAllTools to apply post-registration filtering.
+// capabilityAllows reports whether tool name is permitted for the capability.
+// Empty capability means complete (allow everything).
+func capabilityAllows(capability, name string) bool {
+	switch capability {
+	case "", "complete":
+		return true
+	case "read":
+		return readOnlyTools[name]
+	case "edit":
+		return !destructiveTools[name]
+	default:
+		return true
+	}
+}
+
+// FilterTools removes tools from the server based on tier, capability, and
+// read-only settings. It is called after RegisterAllTools.
 func FilterTools(s *mcpserver.MCPServer, cfg server.Config) {
 	tierAllowed := allowedToolsForTier(cfg.ToolTier)
+	capability := cfg.Capability
+	if cfg.ReadOnly {
+		// --read-only is the stricter shorthand for --capability read.
+		capability = "read"
+	}
 
 	var toRemove []string
 
@@ -364,8 +395,8 @@ func FilterTools(s *mcpserver.MCPServer, cfg server.Config) {
 			remove = true
 		}
 
-		// Read-only filtering: remove tools that require write scopes.
-		if cfg.ReadOnly && !readOnlyTools[name] {
+		// Capability filtering: read / edit / complete.
+		if !capabilityAllows(capability, name) {
 			remove = true
 		}
 

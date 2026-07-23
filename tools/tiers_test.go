@@ -7,7 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // registeredToolNames returns the names of all tools registered on the server.
@@ -52,9 +52,12 @@ func TestNoFilterLoadsAllTools(t *testing.T) {
 func TestTierCoreFiltering(t *testing.T) {
 	s := newTestServer(t, server.Config{ToolTier: "core"})
 	names := registeredToolNames(t, s)
-	// Gmail core (4) + Drive core (7) + Calendar core (4) + Docs core (3) + Sheets core (3) + Chat core (3) + Forms core (2) + Slides core (2) + Tasks core (4) + Contacts core (4) + Search core (1) + AppScript core (7) = 44.
-	if len(names) != 44 {
-		t.Errorf("expected 44 tools with core tier, got %d: %v", len(names), names)
+	// Gmail core (4) + Drive core (7) + Calendar core (5, includes delete_event) + Docs core (3) + Sheets core (3) + Chat core (3) + Forms core (2) + Slides core (2) + Tasks core (4) + Contacts core (4) + Search core (1) + AppScript core (7) = 45.
+	if len(names) != 45 {
+		t.Errorf("expected 45 tools with core tier, got %d: %v", len(names), names)
+	}
+	if !names["delete_event"] {
+		t.Error("expected delete_event in core tier")
 	}
 }
 
@@ -168,6 +171,82 @@ func TestReadOnlyPlusTierComposition(t *testing.T) {
 	names2 := registeredToolNames(t, s2)
 	if len(names2) != 24 {
 		t.Errorf("expected 24 tools with read-only + core tier, got %d: %v", len(names2), names2)
+	}
+}
+
+func TestCapabilityReadFiltering(t *testing.T) {
+	s := newTestServer(t, server.Config{Capability: "read"})
+	names := registeredToolNames(t, s)
+	if len(names) != 59 {
+		t.Errorf("expected 59 tools with capability read, got %d: %v", len(names), names)
+	}
+	if names["delete_event"] {
+		t.Error("delete_event must not appear under capability read")
+	}
+	if names["create_event"] {
+		t.Error("create_event must not appear under capability read")
+	}
+}
+
+func TestCapabilityEditFiltering(t *testing.T) {
+	s := newTestServer(t, server.Config{Capability: "edit"})
+	names := registeredToolNames(t, s)
+	// All tools minus 6 destructive = 131.
+	if len(names) != 131 {
+		t.Errorf("expected 131 tools with capability edit, got %d: %v", len(names), names)
+	}
+	if !names["delete_event"] {
+		t.Error("expected delete_event under capability edit")
+	}
+	if !names["create_event"] {
+		t.Error("expected create_event under capability edit")
+	}
+	for _, destructive := range []string{
+		"transfer_drive_ownership",
+		"batch_delete_contacts",
+		"delete_task_list",
+		"delete_contact_group",
+		"delete_script_project",
+		"clear_completed_tasks",
+	} {
+		if names[destructive] {
+			t.Errorf("%s must not appear under capability edit", destructive)
+		}
+	}
+}
+
+func TestCapabilityCompleteFiltering(t *testing.T) {
+	s := newTestServer(t, server.Config{Capability: "complete"})
+	names := registeredToolNames(t, s)
+	if len(names) != 137 {
+		t.Errorf("expected 137 tools with capability complete, got %d: %v", len(names), names)
+	}
+	if !names["transfer_drive_ownership"] {
+		t.Error("expected transfer_drive_ownership under capability complete")
+	}
+}
+
+func TestCapabilityEditPlusCore(t *testing.T) {
+	s := newTestServer(t, server.Config{ToolTier: "core", Capability: "edit"})
+	names := registeredToolNames(t, s)
+	// Core has no destructive tools, so edit does not shrink core further.
+	if len(names) != 45 {
+		t.Errorf("expected 45 tools with core+edit, got %d: %v", len(names), names)
+	}
+	if !names["delete_event"] {
+		t.Error("expected delete_event with core+edit")
+	}
+}
+
+func TestReadOnlyOverridesCapability(t *testing.T) {
+	// --read-only wins even if --capability edit is set.
+	s := newTestServer(t, server.Config{Capability: "edit", ReadOnly: true})
+	names := registeredToolNames(t, s)
+	if len(names) != 59 {
+		t.Errorf("expected 59 tools when read-only overrides edit, got %d: %v", len(names), names)
+	}
+	if names["delete_event"] {
+		t.Error("delete_event must not appear when read-only overrides edit")
 	}
 }
 
@@ -290,11 +369,14 @@ func TestToolsCalendarFiltering(t *testing.T) {
 		t.Errorf("expected 6 tools with --tools calendar, got %d: %v", len(names), names)
 	}
 
-	// --tools calendar --tool-tier core: 4 core Calendar tools.
+	// --tools calendar --tool-tier core: 5 core Calendar tools (includes delete_event).
 	s2 := newTestServer(t, server.Config{Tools: []string{"calendar"}, ToolTier: "core"})
 	names2 := registeredToolNames(t, s2)
-	if len(names2) != 4 {
-		t.Errorf("expected 4 tools with --tools calendar --tool-tier core, got %d: %v", len(names2), names2)
+	if len(names2) != 5 {
+		t.Errorf("expected 5 tools with --tools calendar --tool-tier core, got %d: %v", len(names2), names2)
+	}
+	if !names2["delete_event"] {
+		t.Error("expected delete_event with --tools calendar --tool-tier core")
 	}
 
 	// --tools calendar --read-only: 3 Calendar read-only tools.

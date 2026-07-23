@@ -11,8 +11,8 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	calendar "google.golang.org/api/calendar/v3"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // RegisterCalendarTools registers all Calendar tools with the MCP server.

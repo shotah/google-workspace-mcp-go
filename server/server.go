@@ -8,13 +8,15 @@ import (
 const ServerName = "google-workspace-mcp"
 
 // ServerVersion is overwritten at link time by GoReleaser / `make cli`
-// (-X github.com/magks/google-workspace-mcp-go/server.ServerVersion=...).
+// (-X github.com/shotah/google-workspace-mcp-go/server.ServerVersion=...).
 var ServerVersion = "0.1.0"
 
 // Config holds server configuration from CLI flags.
 type Config struct {
-	Tools      []string
-	ToolTier   string
+	Tools    []string
+	ToolTier string
+	// Capability is read|edit|complete. Empty means complete (no capability filter).
+	Capability string
 	Transport  string
 	SingleUser bool
 	ReadOnly   bool

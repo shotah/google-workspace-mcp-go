@@ -20,7 +20,7 @@ import (
 	_ "google.golang.org/api/slides/v1"
 	_ "google.golang.org/api/tasks/v1"
 
-	"github.com/magks/google-workspace-mcp-go/auth"
+	"github.com/shotah/google-workspace-mcp-go/auth"
 )
 
 // cachedClient holds a cached HTTP client along with the credential store

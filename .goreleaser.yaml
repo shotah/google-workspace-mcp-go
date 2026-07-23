@@ -23,7 +23,7 @@ builds:
       - goos: windows
         goarch: arm64
     ldflags:
-      - -s -w -X github.com/magks/google-workspace-mcp-go/server.ServerVersion={{.Version}}
+      - -s -w -X github.com/shotah/google-workspace-mcp-go/server.ServerVersion={{.Version}}
 
 archives:
   - formats: [tar.gz]

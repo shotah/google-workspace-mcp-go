@@ -13,8 +13,8 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	forms "google.golang.org/api/forms/v1"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // RegisterFormsTools registers all Forms tools with the MCP server.

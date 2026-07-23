@@ -15,8 +15,8 @@ import (
 	drive "google.golang.org/api/drive/v3"
 	sheets "google.golang.org/api/sheets/v4"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // RegisterSheetsTools registers all Sheets tools with the MCP server.

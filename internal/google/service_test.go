@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magks/google-workspace-mcp-go/auth"
+	"github.com/shotah/google-workspace-mcp-go/auth"
 )
 
 // writeSampleCredential writes a valid credential JSON file for testing.

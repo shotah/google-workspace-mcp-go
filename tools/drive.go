@@ -13,8 +13,8 @@ import (
 	drive "google.golang.org/api/drive/v3"
 	"google.golang.org/api/googleapi"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // driveQueryPatterns detects structured Drive queries (vs free text).

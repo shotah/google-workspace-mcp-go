@@ -11,7 +11,7 @@
 
 # Build-time version stamp (git describe). Release tags are tracked in ./VERSION.
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -X github.com/magks/google-workspace-mcp-go/server.ServerVersion=$(VERSION)
+LDFLAGS := -X github.com/shotah/google-workspace-mcp-go/server.ServerVersion=$(VERSION)
 
 # Release bump: patch (default), minor, or major. Or set TAG=v0.2.0 explicitly.
 BUMP ?= patch

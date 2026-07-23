@@ -1,4 +1,4 @@
-module github.com/magks/google-workspace-mcp-go
+module github.com/shotah/google-workspace-mcp-go
 
 go 1.26.0
 

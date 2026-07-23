@@ -12,8 +12,8 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	tasks "google.golang.org/api/tasks/v1"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 const (

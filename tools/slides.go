@@ -11,8 +11,8 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	slides "google.golang.org/api/slides/v1"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // mapToStruct converts a map[string]any to a typed struct via JSON round-trip.

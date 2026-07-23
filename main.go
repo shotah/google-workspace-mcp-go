@@ -9,8 +9,8 @@ import (
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
-	"github.com/magks/google-workspace-mcp-go/server"
-	"github.com/magks/google-workspace-mcp-go/tools"
+	"github.com/shotah/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/tools"
 )
 
 // validTools is the set of accepted --tools values.
@@ -24,6 +24,11 @@ var validTools = map[string]bool{
 // validTiers is the set of accepted --tool-tier values.
 var validTiers = map[string]bool{
 	"core": true, "extended": true, "complete": true,
+}
+
+// validCapabilities is the set of accepted --capability values.
+var validCapabilities = map[string]bool{
+	"read": true, "edit": true, "complete": true,
 }
 
 // validTransports is the set of accepted --transport values.
@@ -65,13 +70,15 @@ func parseFlags(args []string) (server.Config, error) {
 	var toolsRaw string
 	fs.StringVar(&toolsRaw, "tools", "", "space-separated list of services to enable (e.g. gmail drive calendar)")
 	var toolTier string
-	fs.StringVar(&toolTier, "tool-tier", "", "tool tier: core, extended, or complete")
+	fs.StringVar(&toolTier, "tool-tier", "", "tool depth: core, extended, or complete (default: complete)")
+	var capability string
+	fs.StringVar(&capability, "capability", "", "permission surface: read, edit, or complete (default: complete)")
 	var transport string
 	fs.StringVar(&transport, "transport", "stdio", "transport mode: stdio or streamable-http")
 	var singleUser bool
 	fs.BoolVar(&singleUser, "single-user", false, "enable single-user mode")
 	var readOnly bool
-	fs.BoolVar(&readOnly, "read-only", false, "enable read-only mode (no write tools)")
+	fs.BoolVar(&readOnly, "read-only", false, "shorthand for --capability read (no write/delete tools)")
 
 	if err := fs.Parse(args); err != nil {
 		return server.Config{}, err
@@ -93,6 +100,11 @@ func parseFlags(args []string) (server.Config, error) {
 		return server.Config{}, fmt.Errorf("unknown tool-tier %q; valid tiers: core, extended, complete", toolTier)
 	}
 
+	// Validate capability.
+	if capability != "" && !validCapabilities[capability] {
+		return server.Config{}, fmt.Errorf("unknown capability %q; valid: read, edit, complete", capability)
+	}
+
 	// Validate transport.
 	if !validTransports[transport] {
 		return server.Config{}, fmt.Errorf("unknown transport %q; valid transports: stdio, streamable-http", transport)
@@ -101,6 +113,7 @@ func parseFlags(args []string) (server.Config, error) {
 	return server.Config{
 		Tools:      selectedTools,
 		ToolTier:   toolTier,
+		Capability: capability,
 		Transport:  transport,
 		SingleUser: singleUser,
 		ReadOnly:   readOnly,

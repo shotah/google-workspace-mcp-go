@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 func TestParseFlagsDefaults(t *testing.T) {
@@ -32,6 +32,7 @@ func TestParseFlagsAllFlags(t *testing.T) {
 	args := []string{
 		"--tools", "gmail drive",
 		"--tool-tier", "core",
+		"--capability", "edit",
 		"--transport", "stdio",
 		"--single-user",
 		"--read-only",
@@ -43,6 +44,7 @@ func TestParseFlagsAllFlags(t *testing.T) {
 	want := server.Config{
 		Tools:      []string{"gmail", "drive"},
 		ToolTier:   "core",
+		Capability: "edit",
 		Transport:  "stdio",
 		SingleUser: true,
 		ReadOnly:   true,
@@ -57,6 +59,9 @@ func TestParseFlagsAllFlags(t *testing.T) {
 	}
 	if cfg.ToolTier != want.ToolTier {
 		t.Errorf("tool-tier = %q, want %q", cfg.ToolTier, want.ToolTier)
+	}
+	if cfg.Capability != want.Capability {
+		t.Errorf("capability = %q, want %q", cfg.Capability, want.Capability)
 	}
 	if cfg.Transport != want.Transport {
 		t.Errorf("transport = %q, want %q", cfg.Transport, want.Transport)
@@ -90,6 +95,25 @@ func TestParseFlagsInvalidTier(t *testing.T) {
 	_, err := parseFlags([]string{"--tool-tier", "bogus"})
 	if err == nil {
 		t.Fatal("expected error for invalid tier")
+	}
+}
+
+func TestParseFlagsInvalidCapability(t *testing.T) {
+	_, err := parseFlags([]string{"--capability", "bogus"})
+	if err == nil {
+		t.Fatal("expected error for invalid capability")
+	}
+}
+
+func TestParseFlagsCapabilityValues(t *testing.T) {
+	for _, cap := range []string{"read", "edit", "complete"} {
+		cfg, err := parseFlags([]string{"--capability", cap})
+		if err != nil {
+			t.Errorf("unexpected error for capability %q: %v", cap, err)
+		}
+		if cfg.Capability != cap {
+			t.Errorf("capability = %q, want %q", cfg.Capability, cap)
+		}
 	}
 }
 

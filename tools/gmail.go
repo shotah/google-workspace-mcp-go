@@ -14,8 +14,8 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	gmail "google.golang.org/api/gmail/v1"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 // gmailMetadataHeaders are the headers to request in metadata-only fetches.

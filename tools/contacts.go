@@ -10,8 +10,8 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	people "google.golang.org/api/people/v1"
 
-	"github.com/magks/google-workspace-mcp-go/internal/google"
-	"github.com/magks/google-workspace-mcp-go/server"
+	"github.com/shotah/google-workspace-mcp-go/internal/google"
+	"github.com/shotah/google-workspace-mcp-go/server"
 )
 
 const (
