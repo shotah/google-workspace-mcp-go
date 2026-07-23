@@ -520,31 +520,41 @@ func handleBatchUpdateForm(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 		fmt.Fprintf(&out, "- Replies Received: %d", len(batchResp.Replies))
 
 		if len(batchResp.Replies) > 0 {
-			fmt.Fprintf(&out, "\n\nUpdate Results:")
-			for i, reply := range batchResp.Replies {
-				if createItem, ok := reply["createItem"]; ok {
-					createMap, _ := createItem.(map[string]any)
-					itemID := "Unknown"
-					if id, ok := createMap["itemId"]; ok {
-						itemID = fmt.Sprintf("%v", id)
-					}
-					questionInfo := ""
-					if qIDs, ok := createMap["questionId"]; ok {
-						if qList, ok := qIDs.([]any); ok && len(qList) > 0 {
-							var ids []string
-							for _, q := range qList {
-								ids = append(ids, fmt.Sprintf("%v", q))
-							}
-							questionInfo = fmt.Sprintf(" (Question IDs: %s)", strings.Join(ids, ", "))
-						}
-					}
-					fmt.Fprintf(&out, "\n  Request %d: Created item %s%s", i+1, itemID, questionInfo)
-				} else {
-					fmt.Fprintf(&out, "\n  Request %d: Operation completed", i+1)
-				}
-			}
+			out.WriteString(formatFormUpdateReplies(batchResp.Replies))
 		}
 
 		return mcp.NewToolResultText(out.String()), nil
 	}
+}
+
+func formatFormUpdateReplies(replies []map[string]any) string {
+	var out strings.Builder
+	out.WriteString("\n\nUpdate Results:")
+	for i, reply := range replies {
+		createItem, ok := reply["createItem"]
+		if !ok {
+			fmt.Fprintf(&out, "\n  Request %d: Operation completed", i+1)
+			continue
+		}
+		createMap, _ := createItem.(map[string]any)
+		itemID := "Unknown"
+		if id, ok := createMap["itemId"]; ok {
+			itemID = fmt.Sprintf("%v", id)
+		}
+		questionInfo := formatFormQuestionIDs(createMap["questionId"])
+		fmt.Fprintf(&out, "\n  Request %d: Created item %s%s", i+1, itemID, questionInfo)
+	}
+	return out.String()
+}
+
+func formatFormQuestionIDs(questionIDs any) string {
+	qList, ok := questionIDs.([]any)
+	if !ok || len(qList) == 0 {
+		return ""
+	}
+	ids := make([]string, 0, len(qList))
+	for _, q := range qList {
+		ids = append(ids, fmt.Sprintf("%v", q))
+	}
+	return fmt.Sprintf(" (Question IDs: %s)", strings.Join(ids, ", "))
 }

@@ -227,27 +227,9 @@ func handleGetDriveFileContent(getClient httpClientFunc) mcpserver.ToolHandlerFu
 		// Determine export MIME type for Google native files.
 		exportMIME := googleNativeExportMIME(mimeType)
 
-		var data []byte
-		if exportMIME != "" {
-			resp, err := svc.Files.Export(fileID, exportMIME).Download()
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Drive API export error: %v", err)), nil
-			}
-			defer resp.Body.Close()
-			data, err = io.ReadAll(resp.Body)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("reading export: %v", err)), nil
-			}
-		} else {
-			resp, err := svc.Files.Get(fileID).SupportsAllDrives(true).Download()
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Drive API download error: %v", err)), nil
-			}
-			defer resp.Body.Close()
-			data, err = io.ReadAll(resp.Body)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("reading download: %v", err)), nil
-			}
+		data, err := downloadDriveContent(svc, fileID, exportMIME)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
 
 		// Try to decode as UTF-8 text.
@@ -308,28 +290,12 @@ func handleGetDriveFileDownloadURL(getClient httpClientFunc) mcpserver.ToolHandl
 		// Determine export MIME type for Google native files.
 		exportMIME, outputMIME := resolveExportFormat(mimeType, exportFormat)
 
-		var data []byte
-		if exportMIME != "" {
-			resp, err := svc.Files.Export(fileID, exportMIME).Download()
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Drive API export error: %v", err)), nil
-			}
-			defer resp.Body.Close()
-			data, err = io.ReadAll(resp.Body)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("reading export: %v", err)), nil
-			}
-		} else {
+		data, err := downloadDriveContent(svc, fileID, exportMIME)
+		if exportMIME == "" {
 			outputMIME = mimeType
-			resp, err := svc.Files.Get(fileID).SupportsAllDrives(true).Download()
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Drive API download error: %v", err)), nil
-			}
-			defer resp.Body.Close()
-			data, err = io.ReadAll(resp.Body)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("reading download: %v", err)), nil
-			}
+		}
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
 
 		sizeBytes := len(data)
@@ -1186,14 +1152,7 @@ func handleShareDriveFile(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			perm.ExpirationTime = expirationTime
 		}
 		if shareType == "domain" || shareType == "anyone" {
-			if v, ok := args["allow_file_discovery"]; ok && v != nil {
-				if b, ok := v.(bool); ok {
-					perm.AllowFileDiscovery = b
-					if !b {
-						perm.ForceSendFields = append(perm.ForceSendFields, "AllowFileDiscovery")
-					}
-				}
-			}
+			setDriveFileDiscovery(perm, args["allow_file_discovery"])
 		}
 
 		call := svc.Permissions.Create(fileID, perm).
@@ -1228,6 +1187,42 @@ func handleShareDriveFile(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 		fmt.Fprintf(&b, "\nView link: %s", link)
 
 		return mcp.NewToolResultText(b.String()), nil
+	}
+}
+
+func downloadDriveContent(svc *drive.Service, fileID, exportMIME string) ([]byte, error) {
+	if exportMIME != "" {
+		resp, err := svc.Files.Export(fileID, exportMIME).Download()
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", "Drive API export error", err)
+		}
+		defer resp.Body.Close()
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("reading export: %w", err)
+		}
+		return data, nil
+	}
+	resp, err := svc.Files.Get(fileID).SupportsAllDrives(true).Download()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", "Drive API download error", err)
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading download: %w", err)
+	}
+	return data, nil
+}
+
+func setDriveFileDiscovery(perm *drive.Permission, value any) {
+	b, ok := value.(bool)
+	if !ok {
+		return
+	}
+	perm.AllowFileDiscovery = b
+	if !b {
+		perm.ForceSendFields = append(perm.ForceSendFields, "AllowFileDiscovery")
 	}
 }
 
@@ -1630,6 +1625,7 @@ func handleTransferDriveOwnership(getClient httpClientFunc) mcpserver.ToolHandle
 // --- Drive helper functions ---
 
 const shortcutMIMEType = "application/vnd.google-apps.shortcut"
+
 const folderMIMEType = "application/vnd.google-apps.folder"
 
 // resolveDriveItem resolves Drive shortcuts to the real item.

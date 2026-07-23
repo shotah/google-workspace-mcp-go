@@ -96,43 +96,7 @@ func executeSearch(ctx context.Context, email, q string, num, start int, safe st
 	fmt.Fprintf(&sb, "- Results Returned: %d (showing %d to %d)\n\n", itemCount, start, start+itemCount-1)
 
 	if itemCount > 0 {
-		sb.WriteString("Results:\n")
-		for i, item := range result.Items {
-			title := item.Title
-			if title == "" {
-				title = "No title"
-			}
-			link := item.Link
-			if link == "" {
-				link = "No link"
-			}
-			snippet := item.Snippet
-			if snippet == "" {
-				snippet = "No description available"
-			}
-			snippet = strings.ReplaceAll(snippet, "\n", " ")
-
-			fmt.Fprintf(&sb, "\n%d. %s\n", start+i, title)
-			fmt.Fprintf(&sb, "   URL: %s\n", link)
-			fmt.Fprintf(&sb, "   Snippet: %s\n", snippet)
-
-			// Add metadata from pagemap if available
-			if len(item.Pagemap) > 0 {
-				var pagemap map[string]any
-				if err := json.Unmarshal(item.Pagemap, &pagemap); err == nil {
-					if metatags, ok := pagemap["metatags"].([]any); ok && len(metatags) > 0 {
-						if meta, ok := metatags[0].(map[string]any); ok {
-							if ogType, ok := meta["og:type"].(string); ok {
-								fmt.Fprintf(&sb, "   Type: %s\n", ogType)
-							}
-							if pubTime, ok := meta["article:published_time"].(string); ok && len(pubTime) >= 10 {
-								fmt.Fprintf(&sb, "   Published: %s\n", pubTime[:10])
-							}
-						}
-					}
-				}
-			}
-		}
+		sb.WriteString(formatCustomSearchResults(result.Items, start))
 	} else {
 		sb.WriteString("\nNo results found.")
 	}
@@ -275,26 +239,7 @@ func handleGetSearchEngineInfo(ctx context.Context, request mcp.CallToolRequest)
 
 	// Add facet/refinement information if available.
 	if contextData != nil {
-		if facets, ok := contextData["facets"].([]any); ok && len(facets) > 0 {
-			sb.WriteString("\nAvailable Refinements:\n")
-			for _, facet := range facets {
-				if facetList, ok := facet.([]any); ok {
-					for _, item := range facetList {
-						if itemMap, ok := item.(map[string]any); ok {
-							label := "Unknown"
-							anchor := "Unknown"
-							if l, ok := itemMap["label"].(string); ok && l != "" {
-								label = l
-							}
-							if a, ok := itemMap["anchor"].(string); ok && a != "" {
-								anchor = a
-							}
-							fmt.Fprintf(&sb, "  - %s (anchor: %s)\n", label, anchor)
-						}
-					}
-				}
-			}
-		}
+		sb.WriteString(formatSearchFacets(contextData["facets"]))
 	}
 
 	// Add search statistics.
@@ -308,6 +253,75 @@ func handleGetSearchEngineInfo(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	return mcp.NewToolResultText(sb.String()), nil
+}
+
+func formatCustomSearchResults(items []*customsearch.Result, start int) string {
+	var sb strings.Builder
+	sb.WriteString("Results:\n")
+	for i, item := range items {
+		title := valueOrDefault(item.Title, "No title")
+		link := valueOrDefault(item.Link, "No link")
+		snippet := valueOrDefault(item.Snippet, "No description available")
+		snippet = strings.ReplaceAll(snippet, "\n", " ")
+		fmt.Fprintf(&sb, "\n%d. %s\n   URL: %s\n   Snippet: %s\n", start+i, title, link, snippet)
+		sb.WriteString(formatSearchResultMetadata(item.Pagemap))
+	}
+	return sb.String()
+}
+
+func formatSearchResultMetadata(raw []byte) string {
+	var pagemap map[string]any
+	if len(raw) == 0 || json.Unmarshal(raw, &pagemap) != nil {
+		return ""
+	}
+	metatags, ok := pagemap["metatags"].([]any)
+	if !ok || len(metatags) == 0 {
+		return ""
+	}
+	meta, ok := metatags[0].(map[string]any)
+	if !ok {
+		return ""
+	}
+	var sb strings.Builder
+	if ogType, ok := meta["og:type"].(string); ok {
+		fmt.Fprintf(&sb, "   Type: %s\n", ogType)
+	}
+	if pubTime, ok := meta["article:published_time"].(string); ok && len(pubTime) >= 10 {
+		fmt.Fprintf(&sb, "   Published: %s\n", pubTime[:10])
+	}
+	return sb.String()
+}
+
+func formatSearchFacets(raw any) string {
+	facets, ok := raw.([]any)
+	if !ok || len(facets) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("\nAvailable Refinements:\n")
+	for _, facet := range facets {
+		facetList, ok := facet.([]any)
+		if !ok {
+			continue
+		}
+		for _, item := range facetList {
+			itemMap, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			label, _ := itemMap["label"].(string)
+			anchor, _ := itemMap["anchor"].(string)
+			fmt.Fprintf(&sb, "  - %s (anchor: %s)\n", valueOrDefault(label, "Unknown"), valueOrDefault(anchor, "Unknown"))
+		}
+	}
+	return sb.String()
+}
+
+func valueOrDefault(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 // --- search_custom_siterestrict ---

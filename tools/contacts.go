@@ -147,63 +147,55 @@ func formatContact(person *people.Person, detailed bool) string {
 	}
 
 	if detailed {
-		// Addresses
-		if len(person.Addresses) > 0 {
-			if fv := person.Addresses[0].FormattedValue; fv != "" {
-				lines = append(lines, "Address: "+fv)
-			}
-		}
-
-		// Birthday
-		if len(person.Birthdays) > 0 {
-			if bday := person.Birthdays[0].Date; bday != nil {
-				bdayStr := fmt.Sprintf("%d/%d", bday.Month, bday.Day)
-				if bday.Year > 0 {
-					bdayStr = fmt.Sprintf("%d/%s", bday.Year, bdayStr)
-				}
-				lines = append(lines, "Birthday: "+bdayStr)
-			}
-		}
-
-		// URLs
-		if len(person.Urls) > 0 {
-			var urls []string
-			for _, u := range person.Urls {
-				if u.Value != "" {
-					urls = append(urls, u.Value)
-				}
-			}
-			if len(urls) > 0 {
-				lines = append(lines, "URLs: "+strings.Join(urls, ", "))
-			}
-		}
-
-		// Biography/Notes
-		if len(person.Biographies) > 0 {
-			bio := person.Biographies[0].Value
-			if bio != "" {
-				if len(bio) > 200 {
-					bio = bio[:200] + "..."
-				}
-				lines = append(lines, "Notes: "+bio)
-			}
-		}
-
-		// Metadata sources
-		if person.Metadata != nil && len(person.Metadata.Sources) > 0 {
-			var sourceTypes []string
-			for _, src := range person.Metadata.Sources {
-				if src.Type != "" {
-					sourceTypes = append(sourceTypes, src.Type)
-				}
-			}
-			if len(sourceTypes) > 0 {
-				lines = append(lines, "Sources: "+strings.Join(sourceTypes, ", "))
-			}
-		}
+		lines = append(lines, formatDetailedContact(person)...)
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func formatDetailedContact(person *people.Person) []string {
+	var lines []string
+	if len(person.Addresses) > 0 && person.Addresses[0].FormattedValue != "" {
+		lines = append(lines, "Address: "+person.Addresses[0].FormattedValue)
+	}
+	if len(person.Birthdays) > 0 && person.Birthdays[0].Date != nil {
+		bday := person.Birthdays[0].Date
+		bdayStr := fmt.Sprintf("%d/%d", bday.Month, bday.Day)
+		if bday.Year > 0 {
+			bdayStr = fmt.Sprintf("%d/%s", bday.Year, bdayStr)
+		}
+		lines = append(lines, "Birthday: "+bdayStr)
+	}
+	var urls []string
+	for _, u := range person.Urls {
+		if u.Value != "" {
+			urls = append(urls, u.Value)
+		}
+	}
+	if len(urls) > 0 {
+		lines = append(lines, "URLs: "+strings.Join(urls, ", "))
+	}
+	if len(person.Biographies) > 0 {
+		bio := person.Biographies[0].Value
+		if len(bio) > 200 {
+			bio = bio[:200] + "..."
+		}
+		if bio != "" {
+			lines = append(lines, "Notes: "+bio)
+		}
+	}
+	var sourceTypes []string
+	if person.Metadata != nil {
+		for _, src := range person.Metadata.Sources {
+			if src.Type != "" {
+				sourceTypes = append(sourceTypes, src.Type)
+			}
+		}
+	}
+	if len(sourceTypes) > 0 {
+		lines = append(lines, "Sources: "+strings.Join(sourceTypes, ", "))
+	}
+	return lines
 }
 
 // ---------------------------------------------------------------------------

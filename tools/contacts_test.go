@@ -214,25 +214,20 @@ func TestContactsFormatContact(t *testing.T) {
 					t.Errorf("formatContact() = %q, want contains %q", got, want)
 				}
 			}
-			// Verify detailed fields are NOT present when detailed=false
+			// Verify detailed fields are NOT present when detailed=false.
 			if !tt.detailed && tt.person != nil {
-				if strings.Contains(got, "Address:") {
-					t.Error("non-detailed should not contain Address")
-				}
-				if strings.Contains(got, "Birthday:") {
-					t.Error("non-detailed should not contain Birthday")
-				}
-				if strings.Contains(got, "URLs:") {
-					t.Error("non-detailed should not contain URLs")
-				}
-				if strings.Contains(got, "Notes:") {
-					t.Error("non-detailed should not contain Notes")
-				}
-				if strings.Contains(got, "Sources:") {
-					t.Error("non-detailed should not contain Sources")
-				}
+				assertNoDetailedContactFields(t, got)
 			}
 		})
+	}
+}
+
+func assertNoDetailedContactFields(t *testing.T, got string) {
+	t.Helper()
+	for _, field := range []string{"Address:", "Birthday:", "URLs:", "Notes:", "Sources:"} {
+		if strings.Contains(got, field) {
+			t.Errorf("non-detailed should not contain %s", strings.TrimSuffix(field, ":"))
+		}
 	}
 }
 
@@ -432,10 +427,10 @@ func TestContactsBuildPersonBody(t *testing.T) {
 
 func TestContactsUpdatePersonFields(t *testing.T) {
 	tests := []struct {
-		name           string
-		person         *people.Person
-		wantFields     []string
-		wantNotFields  []string
+		name          string
+		person        *people.Person
+		wantFields    []string
+		wantNotFields []string
 	}{
 		{
 			"empty person",

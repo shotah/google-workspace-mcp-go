@@ -313,24 +313,7 @@ func handleBatchUpdatePresentation(getClient httpClientFunc) mcpserver.ToolHandl
 		fmt.Fprintf(&out, "- Replies Received: %d", len(resp.Replies))
 
 		if len(resp.Replies) > 0 {
-			fmt.Fprintf(&out, "\n\nUpdate Results:")
-			for i, reply := range resp.Replies {
-				if reply.CreateSlide != nil {
-					objectID := reply.CreateSlide.ObjectId
-					if objectID == "" {
-						objectID = "Unknown"
-					}
-					fmt.Fprintf(&out, "\n  Request %d: Created slide with ID %s", i+1, objectID)
-				} else if reply.CreateShape != nil {
-					objectID := reply.CreateShape.ObjectId
-					if objectID == "" {
-						objectID = "Unknown"
-					}
-					fmt.Fprintf(&out, "\n  Request %d: Created shape with ID %s", i+1, objectID)
-				} else {
-					fmt.Fprintf(&out, "\n  Request %d: Operation completed", i+1)
-				}
-			}
+			out.WriteString(formatSlidesUpdateReplies(resp.Replies))
 		}
 
 		return mcp.NewToolResultText(out.String()), nil
@@ -381,29 +364,7 @@ func handleGetPage(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 		var elementsInfo []string
 		for _, elem := range page.PageElements {
-			elemID := elem.ObjectId
-			if elemID == "" {
-				elemID = "Unknown"
-			}
-			if elem.Shape != nil {
-				shapeType := elem.Shape.ShapeType
-				if shapeType == "" {
-					shapeType = "Unknown"
-				}
-				elementsInfo = append(elementsInfo, fmt.Sprintf("  Shape: ID %s, Type: %s", elemID, shapeType))
-			} else if elem.Table != nil {
-				rows := elem.Table.Rows
-				cols := elem.Table.Columns
-				elementsInfo = append(elementsInfo, fmt.Sprintf("  Table: ID %s, Size: %dx%d", elemID, rows, cols))
-			} else if elem.Line != nil {
-				lineType := elem.Line.LineType
-				if lineType == "" {
-					lineType = "Unknown"
-				}
-				elementsInfo = append(elementsInfo, fmt.Sprintf("  Line: ID %s, Type: %s", elemID, lineType))
-			} else {
-				elementsInfo = append(elementsInfo, fmt.Sprintf("  Element: ID %s, Type: Unknown", elemID))
-			}
+			elementsInfo = append(elementsInfo, formatPageElement(elem))
 		}
 
 		elementsBreakdown := "  No elements found"
@@ -422,6 +383,43 @@ Page Elements:
 
 		return mcp.NewToolResultText(result), nil
 	}
+}
+
+func formatSlidesUpdateReplies(replies []*slides.Response) string {
+	var out strings.Builder
+	out.WriteString("\n\nUpdate Results:")
+	for i, reply := range replies {
+		switch {
+		case reply.CreateSlide != nil:
+			fmt.Fprintf(&out, "\n  Request %d: Created slide with ID %s", i+1, valueOrUnknown(reply.CreateSlide.ObjectId))
+		case reply.CreateShape != nil:
+			fmt.Fprintf(&out, "\n  Request %d: Created shape with ID %s", i+1, valueOrUnknown(reply.CreateShape.ObjectId))
+		default:
+			fmt.Fprintf(&out, "\n  Request %d: Operation completed", i+1)
+		}
+	}
+	return out.String()
+}
+
+func formatPageElement(elem *slides.PageElement) string {
+	elemID := valueOrUnknown(elem.ObjectId)
+	switch {
+	case elem.Shape != nil:
+		return fmt.Sprintf("  Shape: ID %s, Type: %s", elemID, valueOrUnknown(elem.Shape.ShapeType))
+	case elem.Table != nil:
+		return fmt.Sprintf("  Table: ID %s, Size: %dx%d", elemID, elem.Table.Rows, elem.Table.Columns)
+	case elem.Line != nil:
+		return fmt.Sprintf("  Line: ID %s, Type: %s", elemID, valueOrUnknown(elem.Line.LineType))
+	default:
+		return fmt.Sprintf("  Element: ID %s, Type: Unknown", elemID)
+	}
+}
+
+func valueOrUnknown(value string) string {
+	if value == "" {
+		return "Unknown"
+	}
+	return value
 }
 
 // --- get_page_thumbnail ---

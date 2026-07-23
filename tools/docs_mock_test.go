@@ -204,6 +204,97 @@ func TestDocsMockListDocsInFolder(t *testing.T) {
 	})
 }
 
+// --- inspect_doc_structure ---
+
+func TestDocsMockInspectDocStructure(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/documents/doc001": `{
+			"documentId":"doc001",
+			"title":"Architecture Notes",
+			"body":{"content":[
+				{"startIndex":0,"endIndex":1,"sectionBreak":{}},
+				{"startIndex":1,"endIndex":20,"paragraph":{"elements":[
+					{"startIndex":1,"endIndex":20,"textRun":{"content":"System overview\n"}}
+				]}}
+			]}
+		}`,
+	})
+	handler := handleInspectDocStructure(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"document_id":       "doc001",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Document structure analysis") {
+		t.Errorf("expected structure analysis output, got:\n%s", text)
+	}
+	if !strings.Contains(text, "Architecture Notes") || !strings.Contains(text, `"paragraphs": 1`) {
+		t.Errorf("expected document structure details, got:\n%s", text)
+	}
+}
+
+// --- modify_doc_text ---
+
+func TestDocsMockModifyDocText(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/documents/doc001:batchUpdate": `{"replies":[]}`,
+	})
+	handler := handleModifyDocText(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"document_id":       "doc001",
+		"start_index":       1,
+		"text":              "Updated introduction",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Inserted text at index 1") {
+		t.Errorf("expected insertion confirmation, got:\n%s", text)
+	}
+	if !strings.Contains(text, "doc001") {
+		t.Errorf("expected document ID in output, got:\n%s", text)
+	}
+}
+
+// --- find_and_replace_doc ---
+
+func TestDocsMockFindAndReplaceDoc(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/documents/doc001:batchUpdate": `{
+			"replies":[{"replaceAllText":{"occurrencesChanged":2}}]
+		}`,
+	})
+	handler := handleFindAndReplaceDoc(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"document_id":       "doc001",
+		"find_text":         "draft",
+		"replace_text":      "final",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Replaced 2 occurrence(s)") {
+		t.Errorf("expected replacement count, got:\n%s", text)
+	}
+	if !strings.Contains(text, "'draft' with 'final'") {
+		t.Errorf("expected replacement details, got:\n%s", text)
+	}
+}
+
+func TestDocsMockBatchUpdateDoc(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/documents/doc001:batchUpdate": `{"replies":[{"insertText":{}}]}`,
+	})
+	handler := handleBatchUpdateDoc(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"document_id": "doc001",
+		"operations": []any{
+			map[string]any{"type": "insert_text", "index": 1, "text": "Hello"},
+		},
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Successfully executed 1 operations") ||
+		!strings.Contains(text, "insert text at 1") ||
+		!strings.Contains(text, "API replies: 1") {
+		t.Errorf("expected batch update result, got:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestDocsMockAPIError(t *testing.T) {

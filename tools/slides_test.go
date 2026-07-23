@@ -342,3 +342,65 @@ func TestSlidesExtractSlideText(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatSlidesUpdateReplies(t *testing.T) {
+	replies := []*slides.Response{
+		{CreateSlide: &slides.CreateSlideResponse{ObjectId: "slide-1"}},
+		{CreateShape: &slides.CreateShapeResponse{}},
+		{},
+	}
+	want := "\n\nUpdate Results:" +
+		"\n  Request 1: Created slide with ID slide-1" +
+		"\n  Request 2: Created shape with ID Unknown" +
+		"\n  Request 3: Operation completed"
+
+	if got := formatSlidesUpdateReplies(replies); got != want {
+		t.Errorf("formatSlidesUpdateReplies() = %q, want %q", got, want)
+	}
+}
+
+func TestFormatPageElement(t *testing.T) {
+	tests := []struct {
+		name string
+		elem *slides.PageElement
+		want string
+	}{
+		{
+			name: "shape",
+			elem: &slides.PageElement{ObjectId: "shape-1", Shape: &slides.Shape{ShapeType: "TEXT_BOX"}},
+			want: "  Shape: ID shape-1, Type: TEXT_BOX",
+		},
+		{
+			name: "table",
+			elem: &slides.PageElement{ObjectId: "table-1", Table: &slides.Table{Rows: 2, Columns: 3}},
+			want: "  Table: ID table-1, Size: 2x3",
+		},
+		{
+			name: "line",
+			elem: &slides.PageElement{ObjectId: "line-1", Line: &slides.Line{LineType: "STRAIGHT_CONNECTOR_1"}},
+			want: "  Line: ID line-1, Type: STRAIGHT_CONNECTOR_1",
+		},
+		{
+			name: "unknown",
+			elem: &slides.PageElement{},
+			want: "  Element: ID Unknown, Type: Unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatPageElement(tt.elem); got != tt.want {
+				t.Errorf("formatPageElement() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValueOrUnknown(t *testing.T) {
+	if got := valueOrUnknown(""); got != "Unknown" {
+		t.Errorf("valueOrUnknown(\"\") = %q, want %q", got, "Unknown")
+	}
+	if got := valueOrUnknown("value"); got != "value" {
+		t.Errorf("valueOrUnknown(%q) = %q, want %q", "value", got, "value")
+	}
+}

@@ -153,41 +153,9 @@ func handleGetEvents(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		var items []*calendar.Event
-
-		if eventID != "" {
-			// Single event retrieval
-			event, err := svc.Events.Get(calendarID, eventID).Do()
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("getting event %s: %v", eventID, err)), nil
-			}
-			items = []*calendar.Event{event}
-		} else {
-			// Multiple events retrieval with time filtering
-			effectiveTimeMin := correctTimeFormatForAPI(timeMin)
-			if effectiveTimeMin == "" {
-				effectiveTimeMin = time.Now().UTC().Format(time.RFC3339)
-			}
-			effectiveTimeMax := correctTimeFormatForAPI(timeMax)
-
-			call := svc.Events.List(calendarID).
-				TimeMin(effectiveTimeMin).
-				MaxResults(int64(maxResults)).
-				SingleEvents(true).
-				OrderBy("startTime")
-
-			if effectiveTimeMax != "" {
-				call = call.TimeMax(effectiveTimeMax)
-			}
-			if query != "" {
-				call = call.Q(query)
-			}
-
-			resp, err := call.Do()
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("listing events: %v", err)), nil
-			}
-			items = resp.Items
+		items, err := getCalendarEvents(svc, calendarID, eventID, timeMin, timeMax, maxResults, query)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
 
 		if len(items) == 0 {
@@ -456,7 +424,7 @@ func handleCreateEvent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			var msgSb456 strings.Builder
 			for _, ep := range created.ConferenceData.EntryPoints {
 				if ep.EntryPointType == "video" && ep.Uri != "" {
-					msgSb456.WriteString(" Google Meet: " + ep.Uri)
+					fmt.Fprintf(&msgSb456, " Google Meet: %s", ep.Uri)
 					break
 				}
 			}
@@ -545,29 +513,11 @@ func handleModifyEvent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 		timezone := request.GetString("timezone", "")
 
-		if v, ok := args["start_time"]; ok {
-			if s, ok := v.(string); ok {
-				if isAllDay(s) {
-					eventBody.Start = &calendar.EventDateTime{Date: s}
-				} else {
-					eventBody.Start = &calendar.EventDateTime{DateTime: s}
-					if timezone != "" {
-						eventBody.Start.TimeZone = timezone
-					}
-				}
-			}
+		if s, ok := args["start_time"].(string); ok {
+			eventBody.Start = eventDateTime(s, timezone)
 		}
-		if v, ok := args["end_time"]; ok {
-			if s, ok := v.(string); ok {
-				if isAllDay(s) {
-					eventBody.End = &calendar.EventDateTime{Date: s}
-				} else {
-					eventBody.End = &calendar.EventDateTime{DateTime: s}
-					if timezone != "" {
-						eventBody.End.TimeZone = timezone
-					}
-				}
-			}
+		if s, ok := args["end_time"].(string); ok {
+			eventBody.End = eventDateTime(s, timezone)
 		}
 
 		// Handle attendees
@@ -590,23 +540,9 @@ func handleModifyEvent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 		remindersStr := request.GetString("reminders", "")
 		_, useDefaultPresent := args["use_default_reminders"]
 		if remindersStr != "" || useDefaultPresent {
-			reminderData := &calendar.EventReminders{
-				ForceSendFields: []string{"UseDefault"},
-			}
-			if useDefaultPresent {
-				reminderData.UseDefault = getBool(request, "use_default_reminders", true)
-			} else if existing.Reminders != nil {
-				reminderData.UseDefault = existing.Reminders.UseDefault
-			} else {
-				reminderData.UseDefault = true
-			}
-			if remindersStr != "" {
-				overrides, errMsg := parseRemindersJSON(remindersStr)
-				if errMsg != "" {
-					return mcp.NewToolResultError(errMsg), nil
-				}
-				reminderData.Overrides = overrides
-				reminderData.UseDefault = false
+			reminderData, errMsg := buildEventReminders(request, existing.Reminders, remindersStr, useDefaultPresent)
+			if errMsg != "" {
+				return mcp.NewToolResultError(errMsg), nil
 			}
 			eventBody.Reminders = reminderData
 		}
@@ -673,25 +609,81 @@ func handleModifyEvent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			updated.Summary, eventID, email, link)
 
 		// Add Meet link info
-		if addMeetVal, ok := args["add_google_meet"]; ok {
-			if addMeet, ok := addMeetVal.(bool); ok {
-				if addMeet && updated.ConferenceData != nil {
-					var msgSb677 strings.Builder
-					for _, ep := range updated.ConferenceData.EntryPoints {
-						if ep.EntryPointType == "video" && ep.Uri != "" {
-							msgSb677.WriteString(" Google Meet: " + ep.Uri)
-							break
-						}
-					}
-					msg += msgSb677.String()
-				} else if !addMeet {
-					msg += " (Google Meet removed)"
-				}
-			}
+		if addMeet, ok := args["add_google_meet"].(bool); ok {
+			msg += formatGoogleMeetUpdate(addMeet, updated.ConferenceData)
 		}
 
 		return mcp.NewToolResultText(msg), nil
 	}
+}
+
+func getCalendarEvents(svc *calendar.Service, calendarID, eventID, timeMin, timeMax string, maxResults int, query string) ([]*calendar.Event, error) {
+	if eventID != "" {
+		event, err := svc.Events.Get(calendarID, eventID).Do()
+		if err != nil {
+			return nil, fmt.Errorf("getting event %s: %w", eventID, err)
+		}
+		return []*calendar.Event{event}, nil
+	}
+	effectiveTimeMin := correctTimeFormatForAPI(timeMin)
+	if effectiveTimeMin == "" {
+		effectiveTimeMin = time.Now().UTC().Format(time.RFC3339)
+	}
+	call := svc.Events.List(calendarID).TimeMin(effectiveTimeMin).MaxResults(int64(maxResults)).SingleEvents(true).OrderBy("startTime")
+	if effectiveTimeMax := correctTimeFormatForAPI(timeMax); effectiveTimeMax != "" {
+		call = call.TimeMax(effectiveTimeMax)
+	}
+	if query != "" {
+		call = call.Q(query)
+	}
+	resp, err := call.Do()
+	if err != nil {
+		return nil, fmt.Errorf("listing events: %w", err)
+	}
+	return resp.Items, nil
+}
+
+func eventDateTime(value, timezone string) *calendar.EventDateTime {
+	if isAllDay(value) {
+		return &calendar.EventDateTime{Date: value}
+	}
+	return &calendar.EventDateTime{DateTime: value, TimeZone: timezone}
+}
+
+func buildEventReminders(request mcp.CallToolRequest, existing *calendar.EventReminders, reminders string, useDefaultPresent bool) (*calendar.EventReminders, string) {
+	reminderData := &calendar.EventReminders{ForceSendFields: []string{"UseDefault"}}
+	if useDefaultPresent {
+		reminderData.UseDefault = getBool(request, "use_default_reminders", true)
+	} else if existing != nil {
+		reminderData.UseDefault = existing.UseDefault
+	} else {
+		reminderData.UseDefault = true
+	}
+	if reminders == "" {
+		return reminderData, ""
+	}
+	overrides, errMsg := parseRemindersJSON(reminders)
+	if errMsg != "" {
+		return nil, errMsg
+	}
+	reminderData.Overrides = overrides
+	reminderData.UseDefault = false
+	return reminderData, ""
+}
+
+func formatGoogleMeetUpdate(addMeet bool, conferenceData *calendar.ConferenceData) string {
+	if !addMeet {
+		return " (Google Meet removed)"
+	}
+	if conferenceData == nil {
+		return ""
+	}
+	for _, entryPoint := range conferenceData.EntryPoints {
+		if entryPoint.EntryPointType == "video" && entryPoint.Uri != "" {
+			return " Google Meet: " + entryPoint.Uri
+		}
+	}
+	return ""
 }
 
 // --- delete_event ---

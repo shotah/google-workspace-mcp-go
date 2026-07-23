@@ -239,6 +239,65 @@ func TestSheetsMockModifySheetValues(t *testing.T) {
 	})
 }
 
+// --- format_sheet_range ---
+
+func TestSheetsMockFormatSheetRange(t *testing.T) {
+	ts := driveFakeServer(t, map[string]any{
+		"/v4/spreadsheets/ss001": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"sheets":[{"properties":{"sheetId":0,"title":"Budget"}}]}`)
+		},
+		"/v4/spreadsheets/ss001:batchUpdate": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"replies":[{}]}`)
+		},
+	})
+	s := sheetsTestServer(t, []func(*mcpserver.MCPServer, httpClientFunc){registerFormatSheetRange}, testClientFunc(ts))
+	text, isError := callTool(t, s, "format_sheet_range", map[string]any{
+		"spreadsheet_id":     "ss001",
+		"range_name":         "Budget!A1:B2",
+		"background_color":   "#FFEECC",
+		"number_format_type": "CURRENCY",
+		"user_google_email":  "test@example.com",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", text)
+	}
+	if !strings.Contains(text, "Applied formatting") || !strings.Contains(text, "background #FFEECC") {
+		t.Errorf("expected formatting confirmation, got:\n%s", text)
+	}
+}
+
+// --- add_conditional_formatting ---
+
+func TestSheetsMockAddConditionalFormatting(t *testing.T) {
+	ts := driveFakeServer(t, map[string]any{
+		"/v4/spreadsheets/ss001": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"sheets":[{"properties":{"sheetId":0,"title":"Budget"},"conditionalFormats":[]}]}`)
+		},
+		"/v4/spreadsheets/ss001:batchUpdate": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"replies":[{}]}`)
+		},
+	})
+	s := sheetsTestServer(t, []func(*mcpserver.MCPServer, httpClientFunc){registerAddConditionalFormatting}, testClientFunc(ts))
+	text, isError := callTool(t, s, "add_conditional_formatting", map[string]any{
+		"spreadsheet_id":    "ss001",
+		"range_name":        "Budget!B2:B10",
+		"condition_type":    "NUMBER_GREATER",
+		"condition_values":  `["100"]`,
+		"background_color":  "#00FF00",
+		"user_google_email": "test@example.com",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", text)
+	}
+	if !strings.Contains(text, "Added conditional format") || !strings.Contains(text, "NUMBER_GREATER") {
+		t.Errorf("expected conditional formatting confirmation, got:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestSheetsMockAPIError(t *testing.T) {

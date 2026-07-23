@@ -201,3 +201,11 @@ func TestInvalidate_NonexistentUser(t *testing.T) {
 	// Should not panic.
 	cache.Invalidate("nonexistent@example.com")
 }
+
+func TestDefaultClientCache(t *testing.T) {
+	a := DefaultClientCache()
+	b := DefaultClientCache()
+	if a == nil || a != b {
+		t.Fatalf("DefaultClientCache should return the same non-nil singleton")
+	}
+}

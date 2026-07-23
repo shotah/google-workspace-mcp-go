@@ -82,6 +82,124 @@ func TestChatMockSendMessage(t *testing.T) {
 	})
 }
 
+// --- get_messages ---
+
+func TestChatMockGetMessages(t *testing.T) {
+	t.Run("success_with_messages", func(t *testing.T) {
+		ts := driveFakeServer(t, map[string]any{
+			"/v1/spaces/AAAA/messages": `{
+				"messages": [
+					{"name":"spaces/AAAA/messages/msg001","text":"First message","createTime":"2026-02-18T10:00:00Z","sender":{"displayName":"Alice"}},
+					{"name":"spaces/AAAA/messages/msg002","text":"Second message","createTime":"2026-02-18T10:01:00Z","sender":{"displayName":"Bob"}}
+				]
+			}`,
+			"/v1/spaces/AAAA": `{"name":"spaces/AAAA","displayName":"General","spaceType":"SPACE"}`,
+		})
+		handler := handleGetMessages(testClientFunc(ts))
+		text := callHandlerOK(t, handler, map[string]any{
+			"space_id":          "spaces/AAAA",
+			"user_google_email": "test@example.com",
+		})
+		if !strings.Contains(text, "Messages from 'General'") {
+			t.Errorf("expected space name, got:\n%s", text)
+		}
+		if !strings.Contains(text, "Alice") || !strings.Contains(text, "First message") {
+			t.Errorf("expected first message details, got:\n%s", text)
+		}
+		if !strings.Contains(text, "Bob") || !strings.Contains(text, "msg002") {
+			t.Errorf("expected second message details, got:\n%s", text)
+		}
+	})
+
+	t.Run("success_empty", func(t *testing.T) {
+		ts := driveFakeServer(t, map[string]any{
+			"/v1/spaces/AAAA/messages": `{"messages":[]}`,
+			"/v1/spaces/AAAA":          `{"name":"spaces/AAAA","displayName":"General","spaceType":"SPACE"}`,
+		})
+		handler := handleGetMessages(testClientFunc(ts))
+		text := callHandlerOK(t, handler, map[string]any{
+			"space_id":          "spaces/AAAA",
+			"user_google_email": "test@example.com",
+		})
+		if !strings.Contains(text, "No messages found in space 'General'") {
+			t.Errorf("expected empty-message result, got:\n%s", text)
+		}
+	})
+}
+
+// --- search_messages ---
+
+func TestChatMockSearchMessages(t *testing.T) {
+	t.Run("space_scoped_success", func(t *testing.T) {
+		ts := driveFakeServer(t, map[string]any{
+			"/v1/spaces/AAAA/messages": `{
+				"messages": [
+					{"name":"spaces/AAAA/messages/msg001","text":"Project kickoff tomorrow","createTime":"2026-02-18T10:00:00Z","sender":{"displayName":"Alice"}}
+				]
+			}`,
+		})
+		handler := handleSearchMessages(testClientFunc(ts))
+		text := callHandlerOK(t, handler, map[string]any{
+			"query":             "kickoff",
+			"space_id":          "spaces/AAAA",
+			"user_google_email": "test@example.com",
+		})
+		if !strings.Contains(text, "Found 1 messages matching 'kickoff' in space 'spaces/AAAA'") {
+			t.Errorf("expected scoped search summary, got:\n%s", text)
+		}
+		if !strings.Contains(text, "Alice") || !strings.Contains(text, "Project kickoff tomorrow") {
+			t.Errorf("expected matching message details, got:\n%s", text)
+		}
+	})
+
+	t.Run("space_scoped_empty", func(t *testing.T) {
+		ts := driveFakeServer(t, map[string]any{
+			"/v1/spaces/AAAA/messages": `{"messages":[]}`,
+		})
+		handler := handleSearchMessages(testClientFunc(ts))
+		text := callHandlerOK(t, handler, map[string]any{
+			"query":             "missing",
+			"space_id":          "spaces/AAAA",
+			"user_google_email": "test@example.com",
+		})
+		if !strings.Contains(text, "No messages found matching 'missing' in space 'spaces/AAAA'") {
+			t.Errorf("expected empty search result, got:\n%s", text)
+		}
+	})
+}
+
+func TestChatMockSearchMessages_AllSpaces(t *testing.T) {
+	ts := driveFakeServer(t, map[string]any{
+		"/v1/spaces": `{
+			"spaces": [
+				{"name":"spaces/AAAA","displayName":"General"},
+				{"name":"spaces/BBBB","displayName":"Engineering"}
+			]
+		}`,
+		"/v1/spaces/AAAA/messages": `{
+			"messages": [
+				{"name":"spaces/AAAA/messages/msg001","text":"Project kickoff tomorrow","createTime":"2026-02-18T10:00:00Z","sender":{"displayName":"Alice"}}
+			]
+		}`,
+		"/v1/spaces/BBBB/messages": `{
+			"messages": [
+				{"name":"spaces/BBBB/messages/msg002","text":"Kickoff notes","createTime":"2026-02-18T10:01:00Z","sender":{"displayName":"Bob"}}
+			]
+		}`,
+	})
+	handler := handleSearchMessages(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"query":             "kickoff",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Found 2 messages matching 'kickoff' in all accessible spaces") {
+		t.Errorf("expected all-spaces search summary, got:\n%s", text)
+	}
+	if !strings.Contains(text, "General") || !strings.Contains(text, "Engineering") {
+		t.Errorf("expected messages from both spaces, got:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestChatMockAPIError(t *testing.T) {

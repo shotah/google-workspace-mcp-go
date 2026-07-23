@@ -265,6 +265,15 @@ func TestListUsers_MissingDir(t *testing.T) {
 	}
 }
 
+func TestNewCredentialStore(t *testing.T) {
+	t.Setenv("WORKSPACE_MCP_CREDENTIALS_DIR", "/custom/workspace")
+	t.Setenv("GOOGLE_MCP_CREDENTIALS_DIR", "/custom/google")
+	store := NewCredentialStore()
+	if store == nil || store.Dir != "/custom/workspace" {
+		t.Fatalf("unexpected store: %+v", store)
+	}
+}
+
 func TestResolveCredentialDir_EnvPriority(t *testing.T) {
 	t.Setenv("WORKSPACE_MCP_CREDENTIALS_DIR", "/custom/workspace")
 	t.Setenv("GOOGLE_MCP_CREDENTIALS_DIR", "/custom/google")

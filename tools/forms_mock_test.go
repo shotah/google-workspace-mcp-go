@@ -88,13 +88,13 @@ func TestFormsMockListFormResponses(t *testing.T) {
 			"/v1/forms/form001/responses": map[string]any{
 				"responses": []map[string]any{
 					{
-						"responseId":      "resp001",
-						"createTime":      "2026-02-18T10:00:00Z",
+						"responseId":        "resp001",
+						"createTime":        "2026-02-18T10:00:00Z",
 						"lastSubmittedTime": "2026-02-18T10:00:00Z",
 					},
 					{
-						"responseId":      "resp002",
-						"createTime":      "2026-02-18T11:00:00Z",
+						"responseId":        "resp002",
+						"createTime":        "2026-02-18T11:00:00Z",
 						"lastSubmittedTime": "2026-02-18T11:00:00Z",
 					},
 				},
@@ -126,6 +126,32 @@ func TestFormsMockListFormResponses(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestFormsMockBatchUpdateForm(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/forms/form001:batchUpdate": map[string]any{
+			"replies": []map[string]any{
+				{"createItem": map[string]any{
+					"itemId":     "item001",
+					"questionId": []string{"question001"},
+				}},
+			},
+		},
+	})
+	handler := handleBatchUpdateForm(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"form_id": "form001",
+		"requests": []any{
+			map[string]any{"createItem": map[string]any{"item": map[string]any{"title": "How are you?"}}},
+		},
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Batch Update Completed") ||
+		!strings.Contains(text, "Created item item001") ||
+		!strings.Contains(text, "Question IDs: question001") {
+		t.Errorf("expected batch update result, got:\n%s", text)
+	}
 }
 
 // --- API error responses ---

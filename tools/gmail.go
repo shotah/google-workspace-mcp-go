@@ -866,31 +866,7 @@ func handleListGmailFilters(getClient httpClientFunc) mcpserver.ToolHandlerFunc 
 		for i, f := range filters {
 			fmt.Fprintf(&b, "%d. Filter ID: %s\n", i+1, f.Id)
 			if f.Criteria != nil {
-				b.WriteString("   Criteria:\n")
-				if f.Criteria.From != "" {
-					fmt.Fprintf(&b, "     From: %s\n", f.Criteria.From)
-				}
-				if f.Criteria.To != "" {
-					fmt.Fprintf(&b, "     To: %s\n", f.Criteria.To)
-				}
-				if f.Criteria.Subject != "" {
-					fmt.Fprintf(&b, "     Subject: %s\n", f.Criteria.Subject)
-				}
-				if f.Criteria.Query != "" {
-					fmt.Fprintf(&b, "     Query: %s\n", f.Criteria.Query)
-				}
-				if f.Criteria.NegatedQuery != "" {
-					fmt.Fprintf(&b, "     Negated Query: %s\n", f.Criteria.NegatedQuery)
-				}
-				if f.Criteria.HasAttachment {
-					b.WriteString("     Has Attachment: true\n")
-				}
-				if f.Criteria.ExcludeChats {
-					b.WriteString("     Exclude Chats: true\n")
-				}
-				if f.Criteria.Size > 0 {
-					fmt.Fprintf(&b, "     Size: %d (%s)\n", f.Criteria.Size, f.Criteria.SizeComparison)
-				}
+				b.WriteString(formatGmailFilterCriteria(f.Criteria))
 			}
 			if f.Action != nil {
 				b.WriteString("   Actions:\n")
@@ -1049,22 +1025,7 @@ func handleDeleteGmailFilter(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 
 		criteriaStr := "(none)"
 		if filter.Criteria != nil {
-			var parts []string
-			if filter.Criteria.From != "" {
-				parts = append(parts, "from:"+filter.Criteria.From)
-			}
-			if filter.Criteria.To != "" {
-				parts = append(parts, "to:"+filter.Criteria.To)
-			}
-			if filter.Criteria.Subject != "" {
-				parts = append(parts, "subject:"+filter.Criteria.Subject)
-			}
-			if filter.Criteria.Query != "" {
-				parts = append(parts, "query:"+filter.Criteria.Query)
-			}
-			if len(parts) > 0 {
-				criteriaStr = strings.Join(parts, ", ")
-			}
+			criteriaStr = describeGmailFilterCriteria(filter.Criteria)
 		}
 
 		actionStr := "(none)"
@@ -1086,6 +1047,54 @@ func handleDeleteGmailFilter(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 
 		return mcp.NewToolResultText(fmt.Sprintf("Filter deleted successfully!\nFilter ID: %s\nCriteria: %s\nAction: %s", filterID, criteriaStr, actionStr)), nil
 	}
+}
+
+func formatGmailFilterCriteria(criteria *gmail.FilterCriteria) string {
+	var b strings.Builder
+	b.WriteString("   Criteria:\n")
+	for _, field := range []struct {
+		name, value string
+	}{
+		{"From", criteria.From},
+		{"To", criteria.To},
+		{"Subject", criteria.Subject},
+		{"Query", criteria.Query},
+		{"Negated Query", criteria.NegatedQuery},
+	} {
+		if field.value != "" {
+			fmt.Fprintf(&b, "     %s: %s\n", field.name, field.value)
+		}
+	}
+	if criteria.HasAttachment {
+		b.WriteString("     Has Attachment: true\n")
+	}
+	if criteria.ExcludeChats {
+		b.WriteString("     Exclude Chats: true\n")
+	}
+	if criteria.Size > 0 {
+		fmt.Fprintf(&b, "     Size: %d (%s)\n", criteria.Size, criteria.SizeComparison)
+	}
+	return b.String()
+}
+
+func describeGmailFilterCriteria(criteria *gmail.FilterCriteria) string {
+	var parts []string
+	for _, field := range []struct {
+		name, value string
+	}{
+		{"from", criteria.From},
+		{"to", criteria.To},
+		{"subject", criteria.Subject},
+		{"query", criteria.Query},
+	} {
+		if field.value != "" {
+			parts = append(parts, field.name+":"+field.value)
+		}
+	}
+	if len(parts) == 0 {
+		return "(none)"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // --- modify_gmail_message_labels ---

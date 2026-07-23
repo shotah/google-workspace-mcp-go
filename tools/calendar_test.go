@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	calendar "google.golang.org/api/calendar/v3"
 )
 
@@ -529,5 +530,65 @@ func TestCalendarExtractDriveFileID(t *testing.T) {
 				t.Errorf("extractDriveFileID(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildEventReminders(t *testing.T) {
+	t.Parallel()
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"use_default_reminders": false,
+			},
+		},
+	}
+
+	got, errMsg := buildEventReminders(req, nil, "", true)
+	if errMsg != "" || got == nil || got.UseDefault {
+		t.Fatalf("use_default=false: got=%+v err=%q", got, errMsg)
+	}
+
+	got, errMsg = buildEventReminders(req, &calendar.EventReminders{UseDefault: true}, "", false)
+	if errMsg != "" || got == nil || !got.UseDefault {
+		t.Fatalf("existing default: got=%+v err=%q", got, errMsg)
+	}
+
+	got, errMsg = buildEventReminders(req, nil, "", false)
+	if errMsg != "" || got == nil || !got.UseDefault {
+		t.Fatalf("fallback default: got=%+v err=%q", got, errMsg)
+	}
+
+	got, errMsg = buildEventReminders(req, nil, `[{"method":"email","minutes":10}]`, false)
+	if errMsg != "" || got == nil || got.UseDefault || len(got.Overrides) != 1 {
+		t.Fatalf("overrides: got=%+v err=%q", got, errMsg)
+	}
+
+	got, errMsg = buildEventReminders(req, nil, `{bad`, false)
+	if errMsg == "" || got != nil {
+		t.Fatalf("expected parse error, got=%+v err=%q", got, errMsg)
+	}
+}
+
+func TestFormatGoogleMeetUpdate(t *testing.T) {
+	t.Parallel()
+	if got := formatGoogleMeetUpdate(false, nil); got != " (Google Meet removed)" {
+		t.Fatalf("remove: %q", got)
+	}
+	if got := formatGoogleMeetUpdate(true, nil); got != "" {
+		t.Fatalf("nil conference: %q", got)
+	}
+	got := formatGoogleMeetUpdate(true, &calendar.ConferenceData{
+		EntryPoints: []*calendar.EntryPoint{
+			{EntryPointType: "phone", Uri: "tel:1"},
+			{EntryPointType: "video", Uri: "https://meet.google.com/abc"},
+		},
+	})
+	if got != " Google Meet: https://meet.google.com/abc" {
+		t.Fatalf("video: %q", got)
+	}
+	if got := formatGoogleMeetUpdate(true, &calendar.ConferenceData{
+		EntryPoints: []*calendar.EntryPoint{{EntryPointType: "phone", Uri: "tel:1"}},
+	}); got != "" {
+		t.Fatalf("no video: %q", got)
 	}
 }

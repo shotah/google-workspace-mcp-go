@@ -270,57 +270,22 @@ func handleSearchMessages(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		type messageWithSpace struct {
-			msg       *chat.Message
-			spaceName string
-		}
-
 		var results []messageWithSpace
 		var searchContext string
 
 		filter := fmt.Sprintf(`text:"%s"`, query)
 
 		if spaceID != "" {
-			// Search within a specific space
-			resp, err := svc.Spaces.Messages.List(spaceID).
-				PageSize(int64(pageSize)).
-				Filter(filter).
-				Do()
+			resp, err := svc.Spaces.Messages.List(spaceID).PageSize(int64(pageSize)).Filter(filter).Do()
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("searching messages: %v", err)), nil
 			}
-			for _, msg := range resp.Messages {
-				results = append(results, messageWithSpace{msg: msg, spaceName: ""})
-			}
+			results = messagesWithSpace(resp.Messages, "")
 			searchContext = fmt.Sprintf("space '%s'", spaceID)
 		} else {
-			// Search across all accessible spaces
-			spacesResp, err := svc.Spaces.List().PageSize(100).Do()
+			results, err = searchMessagesInSpaces(svc, filter)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("listing spaces for search: %v", err)), nil
-			}
-
-			// Limit to first 10 spaces to avoid timeout
-			spaces := spacesResp.Spaces
-			if len(spaces) > 10 {
-				spaces = spaces[:10]
-			}
-
-			for _, space := range spaces {
-				resp, err := svc.Spaces.Messages.List(space.Name).
-					PageSize(5).
-					Filter(filter).
-					Do()
-				if err != nil {
-					continue // Skip spaces we can't access
-				}
-				displayName := space.DisplayName
-				if displayName == "" {
-					displayName = "Unknown"
-				}
-				for _, msg := range resp.Messages {
-					results = append(results, messageWithSpace{msg: msg, spaceName: displayName})
-				}
+				return mcp.NewToolResultError(err.Error()), nil
 			}
 			searchContext = "all accessible spaces"
 		}
@@ -359,4 +324,37 @@ func handleSearchMessages(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 		return mcp.NewToolResultText(out.String()), nil
 	}
+}
+
+type messageWithSpace struct {
+	msg       *chat.Message
+	spaceName string
+}
+
+func searchMessagesInSpaces(svc *chat.Service, filter string) ([]messageWithSpace, error) {
+	spacesResp, err := svc.Spaces.List().PageSize(100).Do()
+	if err != nil {
+		return nil, fmt.Errorf("listing spaces for search: %w", err)
+	}
+	spaces := spacesResp.Spaces
+	if len(spaces) > 10 {
+		spaces = spaces[:10]
+	}
+	var results []messageWithSpace
+	for _, space := range spaces {
+		resp, err := svc.Spaces.Messages.List(space.Name).PageSize(5).Filter(filter).Do()
+		if err != nil {
+			continue
+		}
+		results = append(results, messagesWithSpace(resp.Messages, valueOrDefault(space.DisplayName, "Unknown"))...)
+	}
+	return results, nil
+}
+
+func messagesWithSpace(messages []*chat.Message, spaceName string) []messageWithSpace {
+	results := make([]messageWithSpace, 0, len(messages))
+	for _, msg := range messages {
+		results = append(results, messageWithSpace{msg: msg, spaceName: spaceName})
+	}
+	return results
 }

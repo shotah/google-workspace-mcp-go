@@ -141,6 +141,99 @@ func TestTasksMockCreateTask(t *testing.T) {
 	})
 }
 
+// --- get_task ---
+
+func TestTasksMockGetTask(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/tasks/v1/lists/tl001/tasks/task001": map[string]any{
+			"id":       "task001",
+			"title":    "Prepare release",
+			"status":   "needsAction",
+			"updated":  "2026-02-18T14:00:00Z",
+			"notes":    "Verify changelog",
+			"due":      "2026-02-20T17:00:00.000Z",
+			"parent":   "parent001",
+			"position": "00000000000000000001",
+		},
+	})
+	handler := handleGetTask(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"task_list_id":      "tl001",
+		"task_id":           "task001",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Task Details") || !strings.Contains(text, "Prepare release") {
+		t.Errorf("expected task details, got:\n%s", text)
+	}
+	if !strings.Contains(text, "Verify changelog") {
+		t.Errorf("expected task notes, got:\n%s", text)
+	}
+}
+
+// --- update_task ---
+
+func TestTasksMockUpdateTask(t *testing.T) {
+	ts := driveFakeServer(t, map[string]any{
+		"/tasks/v1/lists/tl001/tasks/task001": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.Method {
+			case http.MethodGet:
+				fmt.Fprint(w, `{"id":"task001","title":"Prepare release","status":"needsAction","notes":"Verify changelog","updated":"2026-02-18T14:00:00Z"}`)
+			case http.MethodPut:
+				fmt.Fprint(w, `{"id":"task001","title":"Publish release","status":"completed","notes":"Approved","updated":"2026-02-19T09:00:00Z"}`)
+			default:
+				t.Errorf("unexpected method %s", r.Method)
+				w.WriteHeader(http.StatusMethodNotAllowed)
+			}
+		},
+	})
+	handler := handleUpdateTask(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"task_list_id":      "tl001",
+		"task_id":           "task001",
+		"title":             "Publish release",
+		"status":            "completed",
+		"notes":             "Approved",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Task Updated") || !strings.Contains(text, "Publish release") {
+		t.Errorf("expected updated task details, got:\n%s", text)
+	}
+	if !strings.Contains(text, "completed") {
+		t.Errorf("expected updated status, got:\n%s", text)
+	}
+}
+
+// --- move_task ---
+
+func TestTasksMockMoveTask(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/tasks/v1/lists/tl001/tasks/task001/move": map[string]any{
+			"id":       "task001",
+			"title":    "Prepare release",
+			"status":   "needsAction",
+			"updated":  "2026-02-19T09:00:00Z",
+			"parent":   "parent001",
+			"position": "00000000000000000002",
+		},
+	})
+	handler := handleMoveTask(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"task_list_id":          "tl001",
+		"task_id":               "task001",
+		"parent":                "parent001",
+		"previous":              "task000",
+		"destination_task_list": "tl002",
+		"user_google_email":     "test@example.com",
+	})
+	if !strings.Contains(text, "Task Moved") || !strings.Contains(text, "Prepare release") {
+		t.Errorf("expected moved task details, got:\n%s", text)
+	}
+	if !strings.Contains(text, "moved to task list tl002") {
+		t.Errorf("expected destination details, got:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestTasksMockAPIError(t *testing.T) {

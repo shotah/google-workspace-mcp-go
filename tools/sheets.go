@@ -438,39 +438,7 @@ func summarizeConditionalRule(rule *sheets.ConditionalFormatRule, index int, tit
 	}
 
 	if rule.BooleanRule != nil {
-		br := rule.BooleanRule
-		condType := "UNKNOWN"
-		var condValues []string
-		if br.Condition != nil {
-			condType = br.Condition.Type
-			for _, v := range br.Condition.Values {
-				condValues = append(condValues, v.UserEnteredValue)
-			}
-		}
-		valueDesc := ""
-		if len(condValues) > 0 {
-			valueDesc = fmt.Sprintf(" values=%v", condValues)
-		}
-
-		var fmtParts []string
-		if br.Format != nil {
-			if bgHex := colorToHex(br.Format.BackgroundColor); bgHex != "" && bgHex != "#000000" {
-				fmtParts = append(fmtParts, "bg "+bgHex)
-			} else if br.Format.BackgroundColor != nil {
-				fmtParts = append(fmtParts, "bg "+colorToHex(br.Format.BackgroundColor))
-			}
-			if br.Format.TextFormat != nil {
-				if fgHex := colorToHex(br.Format.TextFormat.ForegroundColor); fgHex != "" {
-					fmtParts = append(fmtParts, "text "+fgHex)
-				}
-			}
-		}
-		fmtDesc := "no format"
-		if len(fmtParts) > 0 {
-			fmtDesc = strings.Join(fmtParts, ", ")
-		}
-
-		return fmt.Sprintf("[%d] %s%s -> %s on %s", index, condType, valueDesc, fmtDesc, strings.Join(rangeLabels, ", "))
+		return summarizeBooleanConditionalRule(rule.BooleanRule, index, rangeLabels)
 	}
 
 	if rule.GradientRule != nil {
@@ -504,6 +472,43 @@ func summarizeConditionalRule(rule *sheets.ConditionalFormatRule, index int, tit
 	}
 
 	return fmt.Sprintf("[%d] (unknown rule) on %s", index, strings.Join(rangeLabels, ", "))
+}
+
+func summarizeBooleanConditionalRule(rule *sheets.BooleanRule, index int, rangeLabels []string) string {
+	condType := "UNKNOWN"
+	var condValues []string
+	if rule.Condition != nil {
+		condType = rule.Condition.Type
+		for _, value := range rule.Condition.Values {
+			condValues = append(condValues, value.UserEnteredValue)
+		}
+	}
+	valueDesc := ""
+	if len(condValues) > 0 {
+		valueDesc = fmt.Sprintf(" values=%v", condValues)
+	}
+	return fmt.Sprintf("[%d] %s%s -> %s on %s", index, condType, valueDesc, summarizeConditionalFormat(rule.Format), strings.Join(rangeLabels, ", "))
+}
+
+func summarizeConditionalFormat(format *sheets.CellFormat) string {
+	if format == nil {
+		return "no format"
+	}
+	var parts []string
+	if bgHex := colorToHex(format.BackgroundColor); bgHex != "" && bgHex != "#000000" {
+		parts = append(parts, "bg "+bgHex)
+	} else if format.BackgroundColor != nil {
+		parts = append(parts, "bg "+colorToHex(format.BackgroundColor))
+	}
+	if format.TextFormat != nil {
+		if fgHex := colorToHex(format.TextFormat.ForegroundColor); fgHex != "" {
+			parts = append(parts, "text "+fgHex)
+		}
+	}
+	if len(parts) == 0 {
+		return "no format"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // formatConditionalRulesSection builds a multi-line string describing conditional formatting rules.
@@ -1180,8 +1185,9 @@ func registerAddConditionalFormatting(s *mcpserver.MCPServer, getClient httpClie
 
 		sheetsRange := gridRange.toSheetsGridRange()
 
-		if len(gPoints) > 0 {
-			// Gradient rule
+		switch len(gPoints) {
+		case 2, 3:
+			// Gradient rule.
 			gradientRule := &sheets.GradientRule{}
 			if len(gPoints) == 2 {
 				gradientRule.Minpoint = gradientPointToInterpolation(gPoints[0])
@@ -1197,7 +1203,7 @@ func registerAddConditionalFormatting(s *mcpserver.MCPServer, getClient httpClie
 			}
 			ruleDesc = "gradient"
 			appliedParts = append(appliedParts, fmt.Sprintf("gradient points %d", len(gPoints)))
-		} else {
+		default:
 			// Boolean rule
 			if bgColor == "" && txtColor == "" {
 				return mcp.NewToolResultError("provide at least one of background_color or text_color for the rule format"), nil
@@ -1395,8 +1401,9 @@ func registerUpdateConditionalFormatting(s *mcpserver.MCPServer, getClient httpC
 		var newRule *sheets.ConditionalFormatRule
 		var ruleDesc, valuesDesc, formatDesc string
 
-		if len(gPoints) > 0 {
-			// Update to gradient
+		switch {
+		case len(gPoints) > 0:
+			// Update to gradient.
 			gradientRule := &sheets.GradientRule{}
 			if len(gPoints) == 2 {
 				gradientRule.Minpoint = gradientPointToInterpolation(gPoints[0])
@@ -1412,7 +1419,7 @@ func registerUpdateConditionalFormatting(s *mcpserver.MCPServer, getClient httpC
 			}
 			ruleDesc = "gradient"
 			formatDesc = fmt.Sprintf("gradient points %d", len(gPoints))
-		} else if existingRule.GradientRule != nil {
+		case existingRule.GradientRule != nil:
 			// Existing gradient rule - keep it if no gradient_points provided
 			if bgColor != "" || txtColor != "" || condType != "" || condValuesRaw != nil {
 				return mcp.NewToolResultError("existing rule is a gradient rule. Provide gradient_points to update it, or omit formatting/condition parameters to keep it unchanged"), nil
@@ -1423,7 +1430,7 @@ func registerUpdateConditionalFormatting(s *mcpserver.MCPServer, getClient httpC
 			}
 			ruleDesc = "gradient"
 			formatDesc = "gradient (unchanged)"
-		} else {
+		default:
 			// Boolean rule
 			existingBoolean := existingRule.BooleanRule
 			if existingBoolean == nil {

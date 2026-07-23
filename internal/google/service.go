@@ -7,20 +7,20 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/magks/google-workspace-mcp-go/auth"
-
 	_ "google.golang.org/api/calendar/v3"
 	_ "google.golang.org/api/chat/v1"
+	_ "google.golang.org/api/customsearch/v1"
 	_ "google.golang.org/api/docs/v1"
 	_ "google.golang.org/api/drive/v3"
 	_ "google.golang.org/api/forms/v1"
 	_ "google.golang.org/api/gmail/v1"
-	_ "google.golang.org/api/sheets/v4"
-	_ "google.golang.org/api/slides/v1"
-	_ "google.golang.org/api/customsearch/v1"
 	_ "google.golang.org/api/people/v1"
 	_ "google.golang.org/api/script/v1"
+	_ "google.golang.org/api/sheets/v4"
+	_ "google.golang.org/api/slides/v1"
 	_ "google.golang.org/api/tasks/v1"
+
+	"github.com/magks/google-workspace-mcp-go/auth"
 )
 
 // cachedClient holds a cached HTTP client along with the credential store

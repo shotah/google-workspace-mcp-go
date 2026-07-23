@@ -152,6 +152,29 @@ func TestContactsMockListContactGroups(t *testing.T) {
 	})
 }
 
+func TestContactsMockCreateContactGroup(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/contactGroups": map[string]any{
+			"resourceName": "contactGroups/project-team",
+			"name":         "Project Team",
+			"groupType":    "USER_CONTACT_GROUP",
+		},
+	})
+	s := contactsTestServer(t, []func(*mcpserver.MCPServer, httpClientFunc){registerCreateContactGroup}, testClientFunc(ts))
+	text, isError := callTool(t, s, "create_contact_group", map[string]any{
+		"name":              "Project Team",
+		"user_google_email": "test@example.com",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", text)
+	}
+	if !strings.Contains(text, "Contact Group Created") ||
+		!strings.Contains(text, "Project Team") ||
+		!strings.Contains(text, "project-team") {
+		t.Errorf("expected group creation result, got:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestContactsMockAPIError(t *testing.T) {

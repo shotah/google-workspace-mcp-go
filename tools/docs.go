@@ -175,7 +175,8 @@ func handleGetDocContent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 		var bodyText string
 
-		if mimeType == "application/vnd.google-apps.document" {
+		switch mimeType {
+		case "application/vnd.google-apps.document":
 			// Native Google Doc — use Docs API
 			docsSvc, err := newDocsService(ctx, getClient, email)
 			if err != nil {
@@ -188,7 +189,7 @@ func handleGetDocContent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			}
 
 			bodyText = extractDocText(doc)
-		} else {
+		default:
 			// Non-native file — download via Drive and try UTF-8 decode
 			resp, err := driveSvc.Files.Get(documentID).SupportsAllDrives(true).Download()
 			if err != nil {
@@ -237,22 +238,7 @@ func processTabHierarchy(tab *docs.Tab, level int) string {
 	var b strings.Builder
 
 	if tab.DocumentTab != nil {
-		tabTitle := "Untitled Tab"
-		tabID := "Unknown ID"
-		if tab.TabProperties != nil {
-			if tab.TabProperties.Title != "" {
-				tabTitle = tab.TabProperties.Title
-			}
-			if tab.TabProperties.TabId != "" {
-				tabID = tab.TabProperties.TabId
-			}
-		}
-		if level > 0 {
-			tabTitle = strings.Repeat("    ", level) + tabTitle + " ( ID: " + tabID + ")"
-		}
-		if tab.DocumentTab.Body != nil {
-			b.WriteString(extractTextFromElements(tab.DocumentTab.Body.Content, tabTitle))
-		}
+		b.WriteString(processDocumentTab(tab, level))
 	}
 
 	// Process child tabs
@@ -261,6 +247,26 @@ func processTabHierarchy(tab *docs.Tab, level int) string {
 	}
 
 	return b.String()
+}
+
+func processDocumentTab(tab *docs.Tab, level int) string {
+	tabTitle := "Untitled Tab"
+	tabID := "Unknown ID"
+	if tab.TabProperties != nil {
+		if tab.TabProperties.Title != "" {
+			tabTitle = tab.TabProperties.Title
+		}
+		if tab.TabProperties.TabId != "" {
+			tabID = tab.TabProperties.TabId
+		}
+	}
+	if level > 0 {
+		tabTitle = strings.Repeat("    ", level) + tabTitle + " ( ID: " + tabID + ")"
+	}
+	if tab.DocumentTab.Body == nil {
+		return ""
+	}
+	return extractTextFromElements(tab.DocumentTab.Body.Content, tabTitle)
 }
 
 // extractTextFromElements extracts text from document structural elements.
@@ -841,8 +847,10 @@ func handleModifyDocText(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 		var requests []*docs.Request
 		var operations []string
 
-		// Handle text insertion/replacement
-		if text != "" {
+		// Handle text insertion/replacement.
+		switch text {
+		case "":
+		default:
 			if endIndex > startIndex {
 				// Text replacement
 				if startIndex == 0 {
@@ -896,8 +904,10 @@ func handleModifyDocText(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			}
 		}
 
-		// Handle formatting
-		if hasFormatting {
+		// Handle formatting.
+		switch hasFormatting {
+		case false:
+		default:
 			formatStart := int64(startIndex)
 			formatEnd := int64(endIndex)
 
@@ -923,7 +933,9 @@ func handleModifyDocText(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 			textStyle, fields := buildTextStyle(args, hasBold, hasItalic, hasUnderline, fontSize, fontFamily, textColor, bgColor)
 
-			if len(fields) > 0 {
+			switch len(fields) {
+			case 0:
+			default:
 				requests = append(requests, &docs.Request{
 					UpdateTextStyle: &docs.UpdateTextStyleRequest{
 						Range: &docs.Range{

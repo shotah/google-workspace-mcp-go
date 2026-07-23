@@ -216,29 +216,35 @@ func makeGetScriptProjectHandler(getClient httpClientFunc) mcpserver.ToolHandler
 		// Get project content (files) via GetContent
 		content, err := svc.Projects.GetContent(scriptID).Context(ctx).Do()
 		if err == nil && content != nil && len(content.Files) > 0 {
-			sb.WriteString("\nFiles:\n")
-			for i, f := range content.Files {
-				fileName := f.Name
-				if fileName == "" {
-					fileName = "Untitled"
-				}
-				fileType := f.Type
-				if fileType == "" {
-					fileType = "Unknown"
-				}
-				fmt.Fprintf(&sb, "%d. %s (%s)\n", i+1, fileName, fileType)
-				if f.Source != "" {
-					source := f.Source
-					if len(source) > 200 {
-						source = source[:200] + "..."
-					}
-					fmt.Fprintf(&sb, "   %s\n\n", source)
-				}
-			}
+			sb.WriteString(formatScriptFiles(content.Files))
 		}
 
 		return mcp.NewToolResultText(sb.String()), nil
 	}
+}
+
+func formatScriptFiles(files []*script.File) string {
+	var sb strings.Builder
+	sb.WriteString("\nFiles:\n")
+	for i, f := range files {
+		fileName := f.Name
+		if fileName == "" {
+			fileName = "Untitled"
+		}
+		fileType := f.Type
+		if fileType == "" {
+			fileType = "Unknown"
+		}
+		fmt.Fprintf(&sb, "%d. %s (%s)\n", i+1, fileName, fileType)
+		if f.Source != "" {
+			source := f.Source
+			if len(source) > 200 {
+				source = source[:200] + "..."
+			}
+			fmt.Fprintf(&sb, "   %s\n\n", source)
+		}
+	}
+	return sb.String()
 }
 
 // --- get_script_content ---

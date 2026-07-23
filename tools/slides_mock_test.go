@@ -100,6 +100,69 @@ func TestSlidesMockGetPresentation(t *testing.T) {
 	})
 }
 
+func TestSlidesMockGetPage(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/presentations/pres001/pages/slide001": map[string]any{
+			"objectId": "slide001",
+			"pageType": "SLIDE",
+			"pageElements": []map[string]any{
+				{"objectId": "shape001", "shape": map[string]any{"shapeType": "TEXT_BOX"}},
+			},
+		},
+	})
+	handler := handleGetPage(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"presentation_id":   "pres001",
+		"page_object_id":    "slide001",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Page Details for test@example.com") ||
+		!strings.Contains(text, "Shape: ID shape001, Type: TEXT_BOX") {
+		t.Errorf("expected page details, got:\n%s", text)
+	}
+}
+
+func TestSlidesMockBatchUpdatePresentation(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/presentations/pres001:batchUpdate": map[string]any{
+			"replies": []map[string]any{
+				{"createSlide": map[string]any{"objectId": "slide002"}},
+			},
+		},
+	})
+	handler := handleBatchUpdatePresentation(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"presentation_id": "pres001",
+		"requests": []any{
+			map[string]any{"createSlide": map[string]any{"objectId": "slide002"}},
+		},
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Batch Update Completed") ||
+		!strings.Contains(text, "Created slide with ID slide002") {
+		t.Errorf("expected batch update result, got:\n%s", text)
+	}
+}
+
+func TestSlidesMockGetPageThumbnail(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v1/presentations/pres001/pages/slide001/thumbnail": map[string]any{
+			"contentUrl": "https://example.com/slide001.png",
+		},
+	})
+	handler := handleGetPageThumbnail(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"presentation_id":   "pres001",
+		"page_object_id":    "slide001",
+		"thumbnail_size":    "LARGE",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Thumbnail Generated") ||
+		!strings.Contains(text, "https://example.com/slide001.png") {
+		t.Errorf("expected thumbnail result, got:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestSlidesMockAPIError(t *testing.T) {
