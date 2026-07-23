@@ -2,6 +2,16 @@ package main
 
 import "testing"
 
+func TestDisplayTag(t *testing.T) {
+	t.Parallel()
+	if got := displayTag(""); got != "(none)" {
+		t.Fatalf("empty: %q", got)
+	}
+	if got := displayTag("v1.2.3"); got != "v1.2.3" {
+		t.Fatalf("tag: %q", got)
+	}
+}
+
 func TestNextVersion(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

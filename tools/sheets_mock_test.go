@@ -298,6 +298,26 @@ func TestSheetsMockAddConditionalFormatting(t *testing.T) {
 	}
 }
 
+func TestSheetsMockCreateSheet(t *testing.T) {
+	ts := fakeAPIServer(t, map[string]any{
+		"/v4/spreadsheets/ss001:batchUpdate": `{
+			"replies":[{"addSheet":{"properties":{"sheetId":7,"title":"New Tab"}}}]
+		}`,
+	})
+	s := sheetsTestServer(t, []func(*mcpserver.MCPServer, httpClientFunc){registerCreateSheet}, testClientFunc(ts))
+	text, isError := callTool(t, s, "create_sheet", map[string]any{
+		"spreadsheet_id":    "ss001",
+		"sheet_name":        "New Tab",
+		"user_google_email": "test@example.com",
+	})
+	if isError {
+		t.Fatalf("unexpected error: %s", text)
+	}
+	if !strings.Contains(text, "Successfully created sheet 'New Tab'") || !strings.Contains(text, "ID: 7") {
+		t.Errorf("unexpected create sheet output:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestSheetsMockAPIError(t *testing.T) {

@@ -86,7 +86,7 @@ chmod +x google-workspace-mcp-go
 mv google-workspace-mcp-go ~/.local/bin/  # or anywhere on your PATH
 ```
 
-**Or install with Go** (requires Go 1.24+):
+**Or install with Go** (requires Go 1.26+):
 
 ```bash
 go install github.com/magks/google-workspace-mcp-go@latest

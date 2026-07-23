@@ -56,9 +56,10 @@ func callTool(t *testing.T, s *mcpserver.MCPServer, toolName string, args map[st
 	resp := callToolRaw(t, s, toolName, args)
 	switch r := resp.(type) {
 	case mcp.JSONRPCResponse:
-		result, ok := r.Result.(mcp.CallToolResult)
+		// mcp-go v0.57+ returns *CallToolResult from the server.
+		result, ok := r.Result.(*mcp.CallToolResult)
 		if !ok {
-			t.Fatalf("expected CallToolResult, got %T", r.Result)
+			t.Fatalf("expected *CallToolResult, got %T", r.Result)
 		}
 		if len(result.Content) == 0 {
 			return "", result.IsError

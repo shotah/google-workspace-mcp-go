@@ -142,9 +142,7 @@ func TestGetAuthenticatedClient_ConcurrentAccess(t *testing.T) {
 	errs := make(chan error, 10)
 
 	for range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			client, err := cache.GetAuthenticatedClient(context.Background(), email)
 			if err != nil {
 				errs <- err
@@ -153,7 +151,7 @@ func TestGetAuthenticatedClient_ConcurrentAccess(t *testing.T) {
 			if client == nil {
 				errs <- errors.New("got nil client")
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

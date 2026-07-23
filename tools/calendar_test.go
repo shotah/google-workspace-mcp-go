@@ -533,6 +533,18 @@ func TestCalendarExtractDriveFileID(t *testing.T) {
 	}
 }
 
+func TestEventDateTime(t *testing.T) {
+	t.Parallel()
+	allDay := eventDateTime("2026-07-23", "America/Los_Angeles")
+	if allDay.Date != "2026-07-23" || allDay.DateTime != "" {
+		t.Fatalf("all-day: %+v", allDay)
+	}
+	timed := eventDateTime("2026-07-23T10:00:00Z", "UTC")
+	if timed.DateTime != "2026-07-23T10:00:00Z" || timed.TimeZone != "UTC" || timed.Date != "" {
+		t.Fatalf("timed: %+v", timed)
+	}
+}
+
 func TestBuildEventReminders(t *testing.T) {
 	t.Parallel()
 	req := mcp.CallToolRequest{

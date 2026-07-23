@@ -1,6 +1,6 @@
 # Benchmarks
 
-Measurements taken on Linux (Arch, kernel 6.18.2), AMD Ryzen, Go 1.24.0.
+Measurements taken on Linux (Arch, kernel 6.18.2), AMD Ryzen, Go 1.26.0.
 
 ## Go version
 

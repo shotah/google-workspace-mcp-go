@@ -295,6 +295,33 @@ func TestDocsMockBatchUpdateDoc(t *testing.T) {
 	}
 }
 
+func TestDocsMockExportDocToPDF(t *testing.T) {
+	uploadResp := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"id":"pdf001","name":"Report_PDF.pdf","webViewLink":"https://drive.google.com/file/d/pdf001/view","parents":["root"]}`)
+	}
+	ts := driveFakeServer(t, map[string]any{
+		"/drive/v3/files/doc001/export": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/pdf")
+			fmt.Fprint(w, "%PDF-1.4 mock")
+		},
+		"/upload/drive/v3/files": uploadResp,
+		"/drive/v3/files":        uploadResp,
+		"/drive/v3/files/doc001": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"id":"doc001","name":"Report","mimeType":"application/vnd.google-apps.document","webViewLink":"https://docs.google.com/document/d/doc001/edit"}`)
+		},
+	})
+	handler := handleExportDocToPDF(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"document_id":       "doc001",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Successfully exported") || !strings.Contains(text, "pdf001") {
+		t.Errorf("unexpected export output:\n%s", text)
+	}
+}
+
 // --- API error responses ---
 
 func TestDocsMockAPIError(t *testing.T) {

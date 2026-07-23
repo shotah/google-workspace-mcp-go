@@ -453,6 +453,31 @@ func TestDriveMockGetFilePermissions(t *testing.T) {
 	})
 }
 
+func TestDriveMockRemovePermission(t *testing.T) {
+	ts := driveFakeServer(t, map[string]any{
+		"/drive/v3/files/file001/permissions/perm002": func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		},
+		"/drive/v3/files/file001": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"id":"file001","name":"Shared Document","mimeType":"text/plain","webViewLink":"https://drive.google.com/file/d/file001/view"}`)
+		},
+	})
+	handler := handleRemoveDrivePermission(testClientFunc(ts))
+	text := callHandlerOK(t, handler, map[string]any{
+		"file_id":           "file001",
+		"permission_id":     "perm002",
+		"user_google_email": "test@example.com",
+	})
+	if !strings.Contains(text, "Shared Document") || !strings.Contains(strings.ToLower(text), "removed") {
+		t.Errorf("unexpected remove permission output:\n%s", text)
+	}
+}
+
 // --- update_drive_file ---
 
 func TestDriveMockUpdateFile(t *testing.T) {
