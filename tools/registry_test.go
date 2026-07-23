@@ -52,7 +52,7 @@ func TestResolveEmailFallsBackToSingleCredFile(t *testing.T) {
 	t.Setenv("WORKSPACE_MCP_CREDENTIALS_DIR", credDir)
 
 	// Create a single credential file.
-	if err := os.WriteFile(filepath.Join(credDir, "single@example.com.json"), []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(credDir, "single@example.com.json"), []byte("{}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,7 +109,7 @@ func TestResolveEmailWhitespaceOnlyEnvVarTreatedAsEmpty(t *testing.T) {
 	t.Setenv("WORKSPACE_MCP_CREDENTIALS_DIR", credDir)
 
 	// Create a single credential file so fallback 3 works.
-	if err := os.WriteFile(filepath.Join(credDir, "cred@example.com.json"), []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(credDir, "cred@example.com.json"), []byte("{}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -279,11 +281,13 @@ func extractTextFromElementsWithDepth(elements []*docs.StructuralElement, tabNam
 	for _, elem := range elements {
 		if elem.Paragraph != nil {
 			var lineText string
+			var lineTextSb282 strings.Builder
 			for _, pe := range elem.Paragraph.Elements {
 				if pe.TextRun != nil && pe.TextRun.Content != "" {
-					lineText += pe.TextRun.Content
+					lineTextSb282.WriteString(pe.TextRun.Content)
 				}
 			}
+			lineText += lineTextSb282.String()
 			if strings.TrimSpace(lineText) != "" {
 				lines = append(lines, lineText)
 			}
@@ -565,7 +569,7 @@ func buildDetailedStructure(doc *docs.Document) map[string]any {
 		"elements": []map[string]any{},
 	}
 
-	var elemSummaries []map[string]any
+	elemSummaries := make([]map[string]any, 0, len(elements))
 	var tableDetails []map[string]any
 	tableIdx := 0
 
@@ -575,7 +579,8 @@ func buildDetailedStructure(doc *docs.Document) map[string]any {
 			"end_index":   elem.EndIndex,
 		}
 
-		if elem.Table != nil {
+		switch {
+		case elem.Table != nil:
 			summary["type"] = "table"
 			rows := int64(len(elem.Table.TableRows))
 			cols := int64(0)
@@ -607,11 +612,8 @@ func buildDetailedStructure(doc *docs.Document) map[string]any {
 
 			// Extract first 3 rows as preview
 			var preview [][]string
-			maxRows := 3
-			if int(rows) < maxRows {
-				maxRows = int(rows)
-			}
-			for r := 0; r < maxRows; r++ {
+			maxRows := min(3, int(rows))
+			for r := range maxRows {
 				var rowData []string
 				for _, cell := range elem.Table.TableRows[r].TableCells {
 					cellText := extractCellText(cell)
@@ -623,24 +625,25 @@ func buildDetailedStructure(doc *docs.Document) map[string]any {
 			tableDetails = append(tableDetails, tableDetail)
 			tableIdx++
 
-		} else if elem.Paragraph != nil {
+		case elem.Paragraph != nil:
 			summary["type"] = "paragraph"
 			// Text preview (first 100 chars)
-			var textContent string
+			var textContentSb strings.Builder
 			for _, pe := range elem.Paragraph.Elements {
 				if pe.TextRun != nil && pe.TextRun.Content != "" {
-					textContent += pe.TextRun.Content
+					textContentSb.WriteString(pe.TextRun.Content)
 				}
 			}
+			textContent := textContentSb.String()
 			if len(textContent) > 100 {
 				textContent = textContent[:100]
 			}
 			summary["text_preview"] = textContent
-		} else if elem.SectionBreak != nil {
+		case elem.SectionBreak != nil:
 			summary["type"] = "section_break"
-		} else if elem.TableOfContents != nil {
+		case elem.TableOfContents != nil:
 			summary["type"] = "table_of_contents"
-		} else {
+		default:
 			summary["type"] = "unknown"
 		}
 
@@ -657,17 +660,18 @@ func buildDetailedStructure(doc *docs.Document) map[string]any {
 
 // extractCellText extracts text content from a table cell.
 func extractCellText(cell *docs.TableCell) string {
-	var text string
+	var text strings.Builder
 	for _, elem := range cell.Content {
-		if elem.Paragraph != nil {
-			for _, pe := range elem.Paragraph.Elements {
-				if pe.TextRun != nil && pe.TextRun.Content != "" {
-					text += pe.TextRun.Content
-				}
+		if elem.Paragraph == nil {
+			continue
+		}
+		for _, pe := range elem.Paragraph.Elements {
+			if pe.TextRun != nil && pe.TextRun.Content != "" {
+				text.WriteString(pe.TextRun.Content)
 			}
 		}
 	}
-	return strings.TrimSpace(text)
+	return strings.TrimSpace(text.String())
 }
 
 // --- debug_table_structure ---
@@ -748,11 +752,11 @@ func handleDebugTableStructure(getClient httpClientFunc) mcpserver.ToolHandlerFu
 				}
 
 				cellDebug := map[string]any{
-					"position":                fmt.Sprintf("(%d,%d)", rowIdx, colIdx),
-					"range":                   fmt.Sprintf("[%d-%d]", cell.StartIndex, cell.EndIndex),
-					"insertion_index":         insertionIndex,
-					"current_content":         fmt.Sprintf("%q", cellContent),
-					"content_elements_count":  contentElements,
+					"position":               fmt.Sprintf("(%d,%d)", rowIdx, colIdx),
+					"range":                  fmt.Sprintf("[%d-%d]", cell.StartIndex, cell.EndIndex),
+					"insertion_index":        insertionIndex,
+					"current_content":        fmt.Sprintf("%q", cellContent),
+					"content_elements_count": contentElements,
 				}
 				rowInfo = append(rowInfo, cellDebug)
 			}
@@ -945,13 +949,13 @@ func handleModifyDocText(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 					formatDetails = append(formatDetails, fmt.Sprintf("font_size=%d", fontSize))
 				}
 				if fontFamily != "" {
-					formatDetails = append(formatDetails, fmt.Sprintf("font_family=%s", fontFamily))
+					formatDetails = append(formatDetails, "font_family="+fontFamily)
 				}
 				if textColor != "" {
-					formatDetails = append(formatDetails, fmt.Sprintf("text_color=%s", textColor))
+					formatDetails = append(formatDetails, "text_color="+textColor)
 				}
 				if bgColor != "" {
-					formatDetails = append(formatDetails, fmt.Sprintf("background_color=%s", bgColor))
+					formatDetails = append(formatDetails, "background_color="+bgColor)
 				}
 				operations = append(operations, fmt.Sprintf("Applied formatting (%s) to range %d-%d", strings.Join(formatDetails, ", "), formatStart, formatEnd))
 			}
@@ -1040,9 +1044,9 @@ func normalizeColor(hex string) *docs.RgbColor {
 		return nil
 	}
 	return &docs.RgbColor{
-		Red:   float64(r) / 255,
-		Green: float64(g) / 255,
-		Blue:  float64(b) / 255,
+		Red:             float64(r) / 255,
+		Green:           float64(g) / 255,
+		Blue:            float64(b) / 255,
 		ForceSendFields: []string{"Red", "Green", "Blue"},
 	}
 }
@@ -1109,8 +1113,8 @@ func handleFindAndReplaceDoc(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 				{
 					ReplaceAllText: &docs.ReplaceAllTextRequest{
 						ContainsText: &docs.SubstringMatchCriteria{
-							Text:      findText,
-							MatchCase: matchCase,
+							Text:            findText,
+							MatchCase:       matchCase,
 							ForceSendFields: []string{"MatchCase"},
 						},
 						ReplaceText: replaceText,
@@ -1222,7 +1226,7 @@ func handleInsertDocElements(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 					},
 				},
 			)
-			description = fmt.Sprintf("%s list", strings.ToLower(listType))
+			description = strings.ToLower(listType) + " list"
 
 		case "page_break":
 			requests = append(requests, &docs.Request{
@@ -1307,8 +1311,8 @@ func handleInsertDocImage(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			if !strings.HasPrefix(fileMeta.MimeType, "image/") {
 				return mcp.NewToolResultError(fmt.Sprintf("File %s is not an image (MIME type: %s).", imageSource, fileMeta.MimeType)), nil
 			}
-			imageURI = fmt.Sprintf("https://drive.google.com/uc?id=%s", imageSource)
-			sourceDescription = fmt.Sprintf("Drive file %s", fileMeta.Name)
+			imageURI = "https://drive.google.com/uc?id=" + imageSource
+			sourceDescription = "Drive file " + fileMeta.Name
 		} else {
 			imageURI = imageSource
 			sourceDescription = "URL image"
@@ -1346,10 +1350,10 @@ func handleInsertDocImage(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 		if width > 0 || height > 0 {
 			w, h := "auto", "auto"
 			if width > 0 {
-				w = fmt.Sprintf("%d", width)
+				w = strconv.Itoa(width)
 			}
 			if height > 0 {
-				h = fmt.Sprintf("%d", height)
+				h = strconv.Itoa(height)
 			}
 			sizeInfo = fmt.Sprintf(" (size: %sx%s points)", w, h)
 		}
@@ -1581,7 +1585,7 @@ func buildBatchOperationRequest(op map[string]any, opType string, opNum int) ([]
 	getInt := func(key string) (int64, error) {
 		v, ok := op[key]
 		if !ok {
-			return 0, fmt.Errorf("Operation %d (%s): missing required field '%s'", opNum, opType, key)
+			return 0, fmt.Errorf("operation %d (%s): missing required field '%s'", opNum, opType, key)
 		}
 		switch n := v.(type) {
 		case float64:
@@ -1589,18 +1593,18 @@ func buildBatchOperationRequest(op map[string]any, opType string, opNum int) ([]
 		case int:
 			return int64(n), nil
 		default:
-			return 0, fmt.Errorf("Operation %d (%s): field '%s' must be a number", opNum, opType, key)
+			return 0, fmt.Errorf("operation %d (%s): field '%s' must be a number", opNum, opType, key)
 		}
 	}
 
 	getString := func(key string) (string, error) {
 		v, ok := op[key]
 		if !ok {
-			return "", fmt.Errorf("Operation %d (%s): missing required field '%s'", opNum, opType, key)
+			return "", fmt.Errorf("operation %d (%s): missing required field '%s'", opNum, opType, key)
 		}
 		s, ok := v.(string)
 		if !ok {
-			return "", fmt.Errorf("Operation %d (%s): field '%s' must be a string", opNum, opType, key)
+			return "", fmt.Errorf("operation %d (%s): field '%s' must be a string", opNum, opType, key)
 		}
 		return s, nil
 	}
@@ -1688,20 +1692,16 @@ func buildBatchOperationRequest(op map[string]any, opType string, opNum int) ([]
 
 		style, fields := buildTextStyle(op, hasBold, hasItalic, hasUnderline, fs, ff, tc, bc)
 		if len(fields) == 0 {
-			return nil, "", fmt.Errorf("Operation %d (format_text): no formatting options provided", opNum)
+			return nil, "", fmt.Errorf("operation %d (format_text): no formatting options provided", opNum)
 		}
 
-		var changes []string
-		for _, f := range fields {
-			changes = append(changes, f)
-		}
 		return []*docs.Request{{
 			UpdateTextStyle: &docs.UpdateTextStyleRequest{
 				Range:     &docs.Range{StartIndex: start, EndIndex: end},
 				TextStyle: style,
 				Fields:    strings.Join(fields, ","),
 			},
-		}}, fmt.Sprintf("format text %d-%d (%s)", start, end, strings.Join(changes, ", ")), nil
+		}}, fmt.Sprintf("format text %d-%d (%s)", start, end, strings.Join(fields, ", ")), nil
 
 	case "insert_table":
 		idx, err := getInt("index")
@@ -1762,7 +1762,7 @@ func buildBatchOperationRequest(op map[string]any, opType string, opNum int) ([]
 		}}, fmt.Sprintf("find/replace '%s' → '%s'", findText, replaceText), nil
 
 	default:
-		return nil, "", fmt.Errorf("Operation %d: unsupported operation type '%s'. Supported: insert_text, delete_text, replace_text, format_text, insert_table, insert_page_break, find_replace", opNum, opType)
+		return nil, "", fmt.Errorf("operation %d: unsupported operation type '%s'. Supported: insert_text, delete_text, replace_text, format_text, insert_table, insert_page_break, find_replace", opNum, opType)
 	}
 }
 
@@ -1933,7 +1933,7 @@ func handleCreateTableWithData(getClient httpClientFunc) mcpserver.ToolHandlerFu
 func parseTableData(raw any) ([][]string, error) {
 	rows, ok := raw.([]any)
 	if !ok {
-		return nil, fmt.Errorf("table_data must be a 2D array of strings")
+		return nil, errors.New("table_data must be a 2D array of strings")
 	}
 	var result [][]string
 	for i, rowRaw := range rows {
@@ -2003,7 +2003,11 @@ func handleUpdateParagraphStyle(getClient httpClientFunc) mcpserver.ToolHandlerF
 
 		// Heading level
 		if hlRaw, ok := args["heading_level"]; ok {
-			hl := int(hlRaw.(float64))
+			hlFloat, ok := hlRaw.(float64)
+			if !ok {
+				return mcp.NewToolResultError("heading_level must be a number"), nil
+			}
+			hl := int(hlFloat)
 			if hl < 0 || hl > 6 {
 				return mcp.NewToolResultError("heading_level must be between 0 (normal text) and 6"), nil
 			}
@@ -2017,7 +2021,11 @@ func handleUpdateParagraphStyle(getClient httpClientFunc) mcpserver.ToolHandlerF
 
 		// Alignment
 		if alignRaw, ok := args["alignment"]; ok {
-			align := strings.ToUpper(alignRaw.(string))
+			alignStr, ok := alignRaw.(string)
+			if !ok {
+				return mcp.NewToolResultError("alignment must be a string"), nil
+			}
+			align := strings.ToUpper(alignStr)
 			validAligns := map[string]bool{"START": true, "CENTER": true, "END": true, "JUSTIFIED": true}
 			if !validAligns[align] {
 				return mcp.NewToolResultError(fmt.Sprintf("Invalid alignment '%s'. Must be one of: START, CENTER, END, JUSTIFIED", align)), nil
@@ -2028,7 +2036,10 @@ func handleUpdateParagraphStyle(getClient httpClientFunc) mcpserver.ToolHandlerF
 
 		// Line spacing
 		if lsRaw, ok := args["line_spacing"]; ok {
-			ls := lsRaw.(float64)
+			ls, ok := lsRaw.(float64)
+			if !ok {
+				return mcp.NewToolResultError("line_spacing must be a number"), nil
+			}
 			if ls <= 0 {
 				return mcp.NewToolResultError("line_spacing must be positive"), nil
 			}
@@ -2036,32 +2047,48 @@ func handleUpdateParagraphStyle(getClient httpClientFunc) mcpserver.ToolHandlerF
 			fields = append(fields, "lineSpacing")
 		}
 
-		// Indentation
-		if v, ok := args["indent_first_line"]; ok {
-			paraStyle.IndentFirstLine = &docs.Dimension{Magnitude: v.(float64), Unit: "PT"}
-			fields = append(fields, "indentFirstLine")
+		// Indentation / spacing (points)
+		setDim := func(key, field string, set func(float64)) bool {
+			v, ok := args[key]
+			if !ok {
+				return true
+			}
+			mag, ok := v.(float64)
+			if !ok {
+				return false
+			}
+			set(mag)
+			fields = append(fields, field)
+			return true
 		}
-		if v, ok := args["indent_start"]; ok {
-			paraStyle.IndentStart = &docs.Dimension{Magnitude: v.(float64), Unit: "PT"}
-			fields = append(fields, "indentStart")
+		if !setDim("indent_first_line", "indentFirstLine", func(m float64) {
+			paraStyle.IndentFirstLine = &docs.Dimension{Magnitude: m, Unit: "PT"}
+		}) {
+			return mcp.NewToolResultError("indent_first_line must be a number"), nil
 		}
-		if v, ok := args["indent_end"]; ok {
-			paraStyle.IndentEnd = &docs.Dimension{Magnitude: v.(float64), Unit: "PT"}
-			fields = append(fields, "indentEnd")
+		if !setDim("indent_start", "indentStart", func(m float64) {
+			paraStyle.IndentStart = &docs.Dimension{Magnitude: m, Unit: "PT"}
+		}) {
+			return mcp.NewToolResultError("indent_start must be a number"), nil
 		}
-
-		// Spacing
-		if v, ok := args["space_above"]; ok {
-			paraStyle.SpaceAbove = &docs.Dimension{Magnitude: v.(float64), Unit: "PT"}
-			fields = append(fields, "spaceAbove")
+		if !setDim("indent_end", "indentEnd", func(m float64) {
+			paraStyle.IndentEnd = &docs.Dimension{Magnitude: m, Unit: "PT"}
+		}) {
+			return mcp.NewToolResultError("indent_end must be a number"), nil
 		}
-		if v, ok := args["space_below"]; ok {
-			paraStyle.SpaceBelow = &docs.Dimension{Magnitude: v.(float64), Unit: "PT"}
-			fields = append(fields, "spaceBelow")
+		if !setDim("space_above", "spaceAbove", func(m float64) {
+			paraStyle.SpaceAbove = &docs.Dimension{Magnitude: m, Unit: "PT"}
+		}) {
+			return mcp.NewToolResultError("space_above must be a number"), nil
+		}
+		if !setDim("space_below", "spaceBelow", func(m float64) {
+			paraStyle.SpaceBelow = &docs.Dimension{Magnitude: m, Unit: "PT"}
+		}) {
+			return mcp.NewToolResultError("space_below must be a number"), nil
 		}
 
 		if len(fields) == 0 {
-			return mcp.NewToolResultText(fmt.Sprintf("No paragraph style changes specified for document %s", documentID)), nil
+			return mcp.NewToolResultText("No paragraph style changes specified for document " + documentID), nil
 		}
 
 		docsSvc, err := newDocsService(ctx, getClient, email)
@@ -2209,9 +2236,9 @@ func handleExportDocToPDF(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 		folderInfo := ""
 		if folderID != "" {
-			folderInfo = fmt.Sprintf(" in folder %s", folderID)
+			folderInfo = " in folder " + folderID
 		} else if len(uploaded.Parents) > 0 {
-			folderInfo = fmt.Sprintf(" in folder %s", uploaded.Parents[0])
+			folderInfo = " in folder " + uploaded.Parents[0]
 		}
 
 		msg := fmt.Sprintf("Successfully exported '%s' to PDF and saved to Drive as '%s' (ID: %s, %d bytes)%s. PDF: %s | Original: %s",

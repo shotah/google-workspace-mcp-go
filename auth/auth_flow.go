@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net"
@@ -40,9 +42,8 @@ func StartAuthFlow(
 	clientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 	if clientID == "" || clientSecret == "" {
-		return "", fmt.Errorf(
-			"OAuth client credentials not found. Please set GOOGLE_OAUTH_CLIENT_ID and " +
-				"GOOGLE_OAUTH_CLIENT_SECRET environment variables",
+		return "", errors.New("OAuth client credentials not found. Please set GOOGLE_OAUTH_CLIENT_ID and " +
+			"GOOGLE_OAUTH_CLIENT_SECRET environment variables",
 		)
 	}
 
@@ -81,10 +82,13 @@ func StartAuthFlow(
 	resultCh := make(chan CallbackResult, 1)
 	srv := startCallbackServer(port, state, resultCh)
 
+	// OAuth callback outlives the tool call; keep values but not cancellation.
+	oauthCtx := context.WithoutCancel(ctx)
+
 	// Handle the callback asynchronously
 	go func() {
 		defer func() {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			shutdownCtx, cancel := context.WithTimeout(oauthCtx, 3*time.Second)
 			defer cancel()
 			if err := srv.Shutdown(shutdownCtx); err != nil {
 				log.Printf("OAuth callback server shutdown error: %v", err)
@@ -98,7 +102,7 @@ func StartAuthFlow(
 				return
 			}
 
-			tok, err := oauthConfig.Exchange(context.Background(), result.Code)
+			tok, err := oauthConfig.Exchange(oauthCtx, result.Code)
 			if err != nil {
 				log.Printf("OAuth token exchange error: %v", err)
 				return
@@ -139,7 +143,7 @@ func StartAuthFlow(
 	// Build user-facing message
 	initialEmailProvided := userEmail != "" &&
 		strings.TrimSpace(userEmail) != "" &&
-		strings.ToLower(userEmail) != "default"
+		!strings.EqualFold(userEmail, "default")
 
 	userDisplayName := serviceName
 	if initialEmailProvided {
@@ -174,8 +178,13 @@ func findAvailablePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		_ = l.Close()
+		return 0, errors.New("unexpected listener address type")
+	}
+	port := tcpAddr.Port
+	_ = l.Close()
 	return port, nil
 }
 
@@ -186,9 +195,9 @@ func startCallbackServer(port int, expectedState string, resultCh chan<- Callbac
 		query := r.URL.Query()
 		errParam := query.Get("error")
 		if errParam != "" {
-			resultCh <- CallbackResult{Error: fmt.Sprintf("Google returned error: %s", errParam)}
+			resultCh <- CallbackResult{Error: "Google returned error: " + errParam}
 			w.Header().Set("Content-Type", "text/html")
-			fmt.Fprintf(w, "<html><body><h1>Authentication Failed</h1><p>Error: %s</p><p>You can close this window.</p></body></html>", errParam)
+			fmt.Fprintf(w, "<html><body><h1>Authentication Failed</h1><p>Error: %s</p><p>You can close this window.</p></body></html>", html.EscapeString(errParam))
 			return
 		}
 
@@ -215,8 +224,9 @@ func startCallbackServer(port int, expectedState string, resultCh chan<- Callbac
 	})
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("localhost:%d", port),
-		Handler: mux,
+		Addr:              fmt.Sprintf("localhost:%d", port),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
@@ -231,7 +241,7 @@ func startCallbackServer(port int, expectedState string, resultCh chan<- Callbac
 // fetchUserEmail fetches the authenticated user's email address using the OAuth2 userinfo endpoint.
 func fetchUserEmail(tok *oauth2.Token) (string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v2/userinfo", nil)
+	req, err := http.NewRequest(http.MethodGet, "https://www.googleapis.com/oauth2/v2/userinfo", http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -255,7 +265,7 @@ func fetchUserEmail(tok *oauth2.Token) (string, error) {
 		return "", fmt.Errorf("decoding user info: %w", err)
 	}
 	if info.Email == "" {
-		return "", fmt.Errorf("no email in userinfo response")
+		return "", errors.New("no email in userinfo response")
 	}
 	return info.Email, nil
 }

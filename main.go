@@ -78,13 +78,13 @@ func parseFlags(args []string) (server.Config, error) {
 	}
 
 	// Validate and collect tools.
-	var tools []string
+	var selectedTools []string
 	if toolsRaw != "" {
-		for _, t := range strings.Fields(toolsRaw) {
+		for t := range strings.FieldsSeq(toolsRaw) {
 			if !validTools[t] {
 				return server.Config{}, fmt.Errorf("unknown tool %q; valid tools: gmail, drive, calendar, docs, sheets, chat, forms, slides, tasks, contacts, search, appscript", t)
 			}
-			tools = append(tools, t)
+			selectedTools = append(selectedTools, t)
 		}
 	}
 
@@ -99,7 +99,7 @@ func parseFlags(args []string) (server.Config, error) {
 	}
 
 	return server.Config{
-		Tools:      tools,
+		Tools:      selectedTools,
 		ToolTier:   toolTier,
 		Transport:  transport,
 		SingleUser: singleUser,

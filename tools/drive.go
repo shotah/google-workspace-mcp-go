@@ -1176,15 +1176,16 @@ func handleShareDriveFile(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 			Type: shareType,
 			Role: role,
 		}
-		if shareType == "user" || shareType == "group" {
+		switch shareType {
+		case "user", "group":
 			perm.EmailAddress = shareWith
-		} else if shareType == "domain" {
+		case "domain":
 			perm.Domain = shareWith
 		}
 		if expirationTime != "" {
 			perm.ExpirationTime = expirationTime
 		}
-		if (shareType == "domain" || shareType == "anyone") {
+		if shareType == "domain" || shareType == "anyone" {
 			if v, ok := args["allow_file_discovery"]; ok && v != nil {
 				if b, ok := v.(bool); ok {
 					perm.AllowFileDiscovery = b
@@ -1354,7 +1355,7 @@ func handleBatchShareDriveFile(getClient httpClientFunc) mcpserver.ToolHandlerFu
 				results = append(results, fmt.Sprintf("  - %s: Failed - %v", identifier, err))
 				failureCount++
 			} else {
-				results = append(results, fmt.Sprintf("  - %s", formatPermissionInfo(created)))
+				results = append(results, "  - "+formatPermissionInfo(created))
 				successCount++
 			}
 		}

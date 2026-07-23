@@ -244,7 +244,7 @@ func handleSetPublishSettings(getClient httpClientFunc) mcpserver.ToolHandlerFun
 		}
 
 		url := fmt.Sprintf("https://forms.googleapis.com/v1/forms/%s:setPublishSettings", formID)
-		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyJSON))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyJSON))
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("creating request: %v", err)), nil
 		}
@@ -416,7 +416,7 @@ func handleListFormResponses(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 
 		paginationInfo := "\nNo more pages."
 		if resp.NextPageToken != "" {
-			paginationInfo = fmt.Sprintf("\nNext page token: %s", resp.NextPageToken)
+			paginationInfo = "\nNext page token: " + resp.NextPageToken
 		}
 
 		result := fmt.Sprintf(`Form Responses for %s:
@@ -481,7 +481,7 @@ func handleBatchUpdateForm(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 		}
 
 		url := fmt.Sprintf("https://forms.googleapis.com/v1/forms/%s:batchUpdate", formID)
-		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyJSON))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyJSON))
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("creating request: %v", err)), nil
 		}

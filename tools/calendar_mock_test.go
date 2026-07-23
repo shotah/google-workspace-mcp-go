@@ -91,17 +91,17 @@ func TestCalendarMockGetEvents(t *testing.T) {
 			"/calendar/v3/calendars/primary/events": map[string]any{
 				"items": []map[string]any{
 					{
-						"id":      "evt001",
-						"summary": "Team Standup",
-						"start":   map[string]any{"dateTime": "2026-02-18T09:00:00Z"},
-						"end":     map[string]any{"dateTime": "2026-02-18T09:30:00Z"},
+						"id":       "evt001",
+						"summary":  "Team Standup",
+						"start":    map[string]any{"dateTime": "2026-02-18T09:00:00Z"},
+						"end":      map[string]any{"dateTime": "2026-02-18T09:30:00Z"},
 						"htmlLink": "https://calendar.google.com/event?eid=evt001",
 					},
 					{
-						"id":      "evt002",
-						"summary": "Lunch Break",
-						"start":   map[string]any{"dateTime": "2026-02-18T12:00:00Z"},
-						"end":     map[string]any{"dateTime": "2026-02-18T13:00:00Z"},
+						"id":       "evt002",
+						"summary":  "Lunch Break",
+						"start":    map[string]any{"dateTime": "2026-02-18T12:00:00Z"},
+						"end":      map[string]any{"dateTime": "2026-02-18T13:00:00Z"},
 						"htmlLink": "https://calendar.google.com/event?eid=evt002",
 					},
 				},
@@ -213,10 +213,10 @@ func TestCalendarMockGetEvents(t *testing.T) {
 			"/calendar/v3/calendars/primary/events": map[string]any{
 				"items": []map[string]any{
 					{
-						"id":      "evt003",
-						"summary": "Company Holiday",
-						"start":   map[string]any{"date": "2026-02-20"},
-						"end":     map[string]any{"date": "2026-02-21"},
+						"id":       "evt003",
+						"summary":  "Company Holiday",
+						"start":    map[string]any{"date": "2026-02-20"},
+						"end":      map[string]any{"date": "2026-02-21"},
 						"htmlLink": "https://calendar.google.com/event?eid=evt003",
 					},
 				},
@@ -371,7 +371,7 @@ func TestCalendarMockModifyEvent(t *testing.T) {
 		ts := calendarFakeServer(t, map[string]any{
 			"/calendar/v3/calendars/primary/events/evt001": func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				if r.Method == "PUT" {
+				if r.Method == http.MethodPut {
 					// Parse the request body to echo back the modified summary.
 					var body map[string]any
 					json.NewDecoder(r.Body).Decode(&body)
@@ -412,7 +412,7 @@ func TestCalendarMockModifyEvent(t *testing.T) {
 		ts := calendarFakeServer(t, map[string]any{
 			"/calendar/v3/calendars/primary/events/evt002": func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				if r.Method == "PUT" {
+				if r.Method == http.MethodPut {
 					fmt.Fprint(w, `{
 						"id":"evt002","summary":"Rescheduled Meeting",
 						"htmlLink":"https://calendar.google.com/event?eid=evt002",
@@ -464,7 +464,7 @@ func TestCalendarMockDeleteEvent(t *testing.T) {
 		ts := calendarFakeServer(t, map[string]any{
 			"/calendar/v3/calendars/primary/events/evt001": func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				if r.Method == "DELETE" {
+				if r.Method == http.MethodDelete {
 					w.WriteHeader(http.StatusNoContent)
 				} else {
 					// GET returns the event (existence check).

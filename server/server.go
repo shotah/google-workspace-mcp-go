@@ -5,10 +5,11 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
-const (
-	ServerName    = "google-workspace-mcp"
-	ServerVersion = "0.1.0"
-)
+const ServerName = "google-workspace-mcp"
+
+// ServerVersion is overwritten at link time by GoReleaser / `make cli`
+// (-X github.com/magks/google-workspace-mcp-go/server.ServerVersion=...).
+var ServerVersion = "0.1.0"
 
 // Config holds server configuration from CLI flags.
 type Config struct {

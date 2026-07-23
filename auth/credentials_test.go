@@ -224,7 +224,7 @@ func TestListUsers(t *testing.T) {
 		writeCred(t, dir, email, credentialJSON{Token: "tok"})
 	}
 	// Non-json file should be ignored
-	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hi"), 0600)
+	_ = os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hi"), 0o600)
 
 	store := &LocalDirectoryCredentialStore{Dir: dir}
 	users, err := store.ListUsers()
@@ -320,7 +320,7 @@ func writeCred(t *testing.T, dir, email string, cj credentialJSON) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, email+".json"), data, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, email+".json"), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -3,7 +3,7 @@ package google
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,10 +29,10 @@ func writeSampleCredential(t *testing.T, dir, email string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, email+".json"), data, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, email+".json"), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -141,7 +141,7 @@ func TestGetAuthenticatedClient_ConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, 10)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -151,7 +151,7 @@ func TestGetAuthenticatedClient_ConcurrentAccess(t *testing.T) {
 				return
 			}
 			if client == nil {
-				errs <- fmt.Errorf("got nil client")
+				errs <- errors.New("got nil client")
 			}
 		}()
 	}

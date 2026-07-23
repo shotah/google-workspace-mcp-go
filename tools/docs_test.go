@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"strings"
 	"testing"
 
 	docs "google.golang.org/api/docs/v1"
@@ -559,10 +560,7 @@ func TestDocsBuildDetailedStructure(t *testing.T) {
 
 func TestDocsBuildDetailedStructureTextPreviewTruncation(t *testing.T) {
 	// Text > 100 chars should be truncated in the preview
-	longText := ""
-	for i := 0; i < 120; i++ {
-		longText += "x"
-	}
+	longText := strings.Repeat("x", 120)
 	doc := &docs.Document{
 		Title: "Long Text",
 		Body: &docs.Body{
@@ -577,8 +575,14 @@ func TestDocsBuildDetailedStructureTextPreviewTruncation(t *testing.T) {
 	}
 
 	result := buildDetailedStructure(doc)
-	elems := result["elements"].([]map[string]any)
-	preview := elems[0]["text_preview"].(string)
+	elems, ok := result["elements"].([]map[string]any)
+	if !ok || len(elems) == 0 {
+		t.Fatalf("expected elements slice, got %T", result["elements"])
+	}
+	preview, ok := elems[0]["text_preview"].(string)
+	if !ok {
+		t.Fatalf("expected text_preview string, got %T", elems[0]["text_preview"])
+	}
 	if len(preview) != 100 {
 		t.Errorf("text_preview length = %d, want 100", len(preview))
 	}
@@ -598,18 +602,18 @@ func TestDocsNormalizeColor(t *testing.T) {
 		wantB   float64
 	}{
 		{
-			name: "black",
-			hex:  "#000000",
+			name:  "black",
+			hex:   "#000000",
 			wantR: 0, wantG: 0, wantB: 0,
 		},
 		{
-			name: "white",
-			hex:  "#FFFFFF",
+			name:  "white",
+			hex:   "#FFFFFF",
 			wantR: 1, wantG: 1, wantB: 1,
 		},
 		{
-			name: "red",
-			hex:  "#FF0000",
+			name:  "red",
+			hex:   "#FF0000",
 			wantR: 1, wantG: 0, wantB: 0,
 		},
 		{

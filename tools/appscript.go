@@ -342,7 +342,7 @@ func makeListDeploymentsHandler(getClient httpClientFunc) mcpserver.ToolHandlerF
 		}
 
 		if len(resp.Deployments) == 0 {
-			return mcp.NewToolResultText(fmt.Sprintf("No deployments found for script: %s", scriptID)), nil
+			return mcp.NewToolResultText("No deployments found for script: " + scriptID), nil
 		}
 
 		var sb strings.Builder
@@ -484,7 +484,7 @@ func makeListVersionsHandler(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 		}
 
 		if len(resp.Versions) == 0 {
-			return mcp.NewToolResultText(fmt.Sprintf("No versions found for script: %s", scriptID)), nil
+			return mcp.NewToolResultText("No versions found for script: " + scriptID), nil
 		}
 
 		var sb strings.Builder
@@ -1187,7 +1187,7 @@ func makeDeleteScriptProjectHandler(getClient httpClientFunc) mcpserver.ToolHand
 			return mcp.NewToolResultError(fmt.Sprintf("deleting script project: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Deleted Apps Script project: %s", scriptID)), nil
+		return mcp.NewToolResultText("Deleted Apps Script project: " + scriptID), nil
 	}
 }
 
@@ -1400,7 +1400,7 @@ func generateTriggerCodeHandler(_ context.Context, request mcp.CallToolRequest) 
 			"    }",
 			"  });",
 			"",
-			fmt.Sprintf("  // Create new trigger - runs weekly on %s", day),
+			"  // Create new trigger - runs weekly on " + day,
 			fmt.Sprintf("  ScriptApp.newTrigger('%s')", functionName),
 			"    .timeBased()",
 			fmt.Sprintf("    .onWeekDay(ScriptApp.WeekDay.%s)", day),

@@ -127,7 +127,7 @@ func makeReadCommentsHandler(getClient httpClientFunc, appName, fileIDParam stri
 }
 
 // makeCreateCommentHandler creates a handler that creates a new comment on a file.
-func makeCreateCommentHandler(getClient httpClientFunc, appName, fileIDParam string) mcpserver.ToolHandlerFunc {
+func makeCreateCommentHandler(getClient httpClientFunc, _, fileIDParam string) mcpserver.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		email, err := resolveEmail(request)
 		if err != nil {
@@ -167,7 +167,7 @@ func makeCreateCommentHandler(getClient httpClientFunc, appName, fileIDParam str
 }
 
 // makeReplyToCommentHandler creates a handler that replies to a comment on a file.
-func makeReplyToCommentHandler(getClient httpClientFunc, appName, fileIDParam string) mcpserver.ToolHandlerFunc {
+func makeReplyToCommentHandler(getClient httpClientFunc, _, fileIDParam string) mcpserver.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		email, err := resolveEmail(request)
 		if err != nil {
@@ -211,7 +211,7 @@ func makeReplyToCommentHandler(getClient httpClientFunc, appName, fileIDParam st
 }
 
 // makeResolveCommentHandler creates a handler that resolves a comment on a file.
-func makeResolveCommentHandler(getClient httpClientFunc, appName, fileIDParam string) mcpserver.ToolHandlerFunc {
+func makeResolveCommentHandler(getClient httpClientFunc, _, fileIDParam string) mcpserver.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		email, err := resolveEmail(request)
 		if err != nil {

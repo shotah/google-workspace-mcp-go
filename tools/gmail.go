@@ -260,10 +260,7 @@ func handleGetGmailMessagesContentBatch(getClient httpClientFunc) mcpserver.Tool
 
 		// Process in chunks of gmailBatchSize.
 		for chunkStart := 0; chunkStart < len(messageIDs); chunkStart += gmailBatchSize {
-			chunkEnd := chunkStart + gmailBatchSize
-			if chunkEnd > len(messageIDs) {
-				chunkEnd = len(messageIDs)
-			}
+			chunkEnd := min(chunkStart+gmailBatchSize, len(messageIDs))
 			chunk := messageIDs[chunkStart:chunkEnd]
 
 			for _, mid := range chunk {
@@ -487,10 +484,7 @@ func handleGetGmailThreadsContentBatch(getClient httpClientFunc) mcpserver.ToolH
 		var outputThreads []string
 
 		for chunkStart := 0; chunkStart < len(threadIDs); chunkStart += gmailBatchSize {
-			chunkEnd := chunkStart + gmailBatchSize
-			if chunkEnd > len(threadIDs) {
-				chunkEnd = len(threadIDs)
-			}
+			chunkEnd := min(chunkStart+gmailBatchSize, len(threadIDs))
 			chunk := threadIDs[chunkStart:chunkEnd]
 
 			for _, tid := range chunk {
@@ -640,10 +634,7 @@ func handleSendGmailMessage(getClient httpClientFunc) mcpserver.ToolHandlerFunc 
 
 		attachments := getAttachments(request)
 
-		raw, err := buildRawMessage(sender, fromName, to, ccAddr, bccAddr, subject, body, bodyFormat, inReplyTo, references, attachments)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Error building message: %v", err)), nil
-		}
+		raw := buildRawMessage(sender, fromName, to, ccAddr, bccAddr, subject, body, bodyFormat, inReplyTo, references, attachments)
 
 		msg := &gmail.Message{Raw: raw}
 		if threadID != "" {
@@ -655,7 +646,7 @@ func handleSendGmailMessage(getClient httpClientFunc) mcpserver.ToolHandlerFunc 
 			return mcp.NewToolResultError(fmt.Sprintf("Gmail API error: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Email sent successfully!\nMessage ID: %s", sent.Id)), nil
+		return mcp.NewToolResultText("Email sent successfully!\nMessage ID: " + sent.Id), nil
 	}
 }
 
@@ -725,10 +716,7 @@ func handleDraftGmailMessage(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 
 		attachments := getAttachments(request)
 
-		raw, err := buildRawMessage(sender, fromName, toAddr, ccAddr, bccAddr, subject, body, bodyFormat, inReplyTo, references, attachments)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Error building message: %v", err)), nil
-		}
+		raw := buildRawMessage(sender, fromName, toAddr, ccAddr, bccAddr, subject, body, bodyFormat, inReplyTo, references, attachments)
 
 		innerMsg := &gmail.Message{Raw: raw}
 		if threadID != "" {
@@ -742,7 +730,7 @@ func handleDraftGmailMessage(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 			return mcp.NewToolResultError(fmt.Sprintf("Gmail API error: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Draft created successfully!\nDraft ID: %s", created.Id)), nil
+		return mcp.NewToolResultText("Draft created successfully!\nDraft ID: " + created.Id), nil
 	}
 }
 
@@ -836,7 +824,7 @@ func handleManageGmailLabel(getClient httpClientFunc) mcpserver.ToolHandlerFunc 
 			return mcp.NewToolResultText(fmt.Sprintf("Label deleted successfully!\nName: %s\nID: %s", current.Name, current.Id)), nil
 
 		default:
-			return mcp.NewToolResultError(fmt.Sprintf("unknown action: %s", action)), nil
+			return mcp.NewToolResultError("unknown action: " + action), nil
 		}
 	}
 }
@@ -1017,7 +1005,7 @@ func handleCreateGmailFilter(getClient httpClientFunc) mcpserver.ToolHandlerFunc
 			return mcp.NewToolResultError(fmt.Sprintf("Gmail API error: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Filter created successfully!\nFilter ID: %s", created.Id)), nil
+		return mcp.NewToolResultText("Filter created successfully!\nFilter ID: " + created.Id), nil
 	}
 }
 
@@ -1309,33 +1297,33 @@ func getAttachments(request mcp.CallToolRequest) []emailAttachment {
 }
 
 // buildRawMessage constructs a base64url-encoded RFC 2822 message with optional attachments.
-func buildRawMessage(from, fromName, to, cc, bcc, subject, body, bodyFormat, inReplyTo, references string, attachments []emailAttachment) (string, error) {
+func buildRawMessage(from, fromName, to, cc, bcc, subject, body, bodyFormat, inReplyTo, references string, attachments []emailAttachment) string {
 	var msg strings.Builder
 
 	// Common headers.
 	if fromName != "" {
-		msg.WriteString(fmt.Sprintf("From: %s\r\n", formatAddress(fromName, from)))
+		fmt.Fprintf(&msg, "From: %s\r\n", formatAddress(fromName, from))
 	} else {
-		msg.WriteString(fmt.Sprintf("From: %s\r\n", from))
+		fmt.Fprintf(&msg, "From: %s\r\n", from)
 	}
 
 	if to != "" {
-		msg.WriteString(fmt.Sprintf("To: %s\r\n", to))
+		fmt.Fprintf(&msg, "To: %s\r\n", to)
 	}
 	if cc != "" {
-		msg.WriteString(fmt.Sprintf("Cc: %s\r\n", cc))
+		fmt.Fprintf(&msg, "Cc: %s\r\n", cc)
 	}
 	if bcc != "" {
-		msg.WriteString(fmt.Sprintf("Bcc: %s\r\n", bcc))
+		fmt.Fprintf(&msg, "Bcc: %s\r\n", bcc)
 	}
 
-	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", encodeSubject(subject)))
+	fmt.Fprintf(&msg, "Subject: %s\r\n", encodeSubject(subject))
 
 	if inReplyTo != "" {
-		msg.WriteString(fmt.Sprintf("In-Reply-To: %s\r\n", inReplyTo))
+		fmt.Fprintf(&msg, "In-Reply-To: %s\r\n", inReplyTo)
 	}
 	if references != "" {
-		msg.WriteString(fmt.Sprintf("References: %s\r\n", references))
+		fmt.Fprintf(&msg, "References: %s\r\n", references)
 	}
 
 	msg.WriteString("MIME-Version: 1.0\r\n")
@@ -1347,37 +1335,37 @@ func buildRawMessage(from, fromName, to, cc, bcc, subject, body, bodyFormat, inR
 
 	if len(attachments) == 0 {
 		// Simple message without attachments.
-		msg.WriteString(fmt.Sprintf("Content-Type: %s; charset=\"UTF-8\"\r\n", contentType))
+		fmt.Fprintf(&msg, "Content-Type: %s; charset=\"UTF-8\"\r\n", contentType)
 		msg.WriteString("\r\n")
 		msg.WriteString(body)
 	} else {
 		// Multipart message with attachments.
 		boundary := "boundary_mcp_go_attachment"
-		msg.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=\"%s\"\r\n", boundary))
+		fmt.Fprintf(&msg, "Content-Type: multipart/mixed; boundary=\"%s\"\r\n", boundary)
 		msg.WriteString("\r\n")
 
 		// Body part.
-		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-		msg.WriteString(fmt.Sprintf("Content-Type: %s; charset=\"UTF-8\"\r\n", contentType))
+		fmt.Fprintf(&msg, "--%s\r\n", boundary)
+		fmt.Fprintf(&msg, "Content-Type: %s; charset=\"UTF-8\"\r\n", contentType)
 		msg.WriteString("\r\n")
 		msg.WriteString(body)
 		msg.WriteString("\r\n")
 
 		// Attachment parts.
 		for _, att := range attachments {
-			msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-			msg.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", att.mimeType, att.filename))
+			fmt.Fprintf(&msg, "--%s\r\n", boundary)
+			fmt.Fprintf(&msg, "Content-Type: %s; name=\"%s\"\r\n", att.mimeType, att.filename)
 			msg.WriteString("Content-Transfer-Encoding: base64\r\n")
-			msg.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", att.filename))
+			fmt.Fprintf(&msg, "Content-Disposition: attachment; filename=\"%s\"\r\n", att.filename)
 			msg.WriteString("\r\n")
 			msg.WriteString(base64.StdEncoding.EncodeToString(att.data))
 			msg.WriteString("\r\n")
 		}
 
-		msg.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+		fmt.Fprintf(&msg, "--%s--\r\n", boundary)
 	}
 
-	return base64.URLEncoding.EncodeToString([]byte(msg.String())), nil
+	return base64.URLEncoding.EncodeToString([]byte(msg.String()))
 }
 
 // formatAddress formats "Name <email>" using RFC 2047 encoding for the name.

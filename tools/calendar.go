@@ -427,7 +427,7 @@ func handleCreateEvent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 				fileID := extractDriveFileID(att)
 				if fileID != "" {
 					eventBody.Attachments = append(eventBody.Attachments, &calendar.EventAttachment{
-						FileUrl: fmt.Sprintf("https://drive.google.com/open?id=%s", fileID),
+						FileUrl: "https://drive.google.com/open?id=" + fileID,
 						Title:   "Drive Attachment",
 					})
 				}
@@ -453,12 +453,14 @@ func handleCreateEvent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 		// Add Meet link if created
 		if addGoogleMeet && created.ConferenceData != nil {
+			var msgSb456 strings.Builder
 			for _, ep := range created.ConferenceData.EntryPoints {
 				if ep.EntryPointType == "video" && ep.Uri != "" {
-					msg += fmt.Sprintf(" Google Meet: %s", ep.Uri)
+					msgSb456.WriteString(" Google Meet: " + ep.Uri)
 					break
 				}
 			}
+			msg += msgSb456.String()
 		}
 
 		return mcp.NewToolResultText(msg), nil
@@ -674,12 +676,14 @@ func handleModifyEvent(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 		if addMeetVal, ok := args["add_google_meet"]; ok {
 			if addMeet, ok := addMeetVal.(bool); ok {
 				if addMeet && updated.ConferenceData != nil {
+					var msgSb677 strings.Builder
 					for _, ep := range updated.ConferenceData.EntryPoints {
 						if ep.EntryPointType == "video" && ep.Uri != "" {
-							msg += fmt.Sprintf(" Google Meet: %s", ep.Uri)
+							msgSb677.WriteString(" Google Meet: " + ep.Uri)
 							break
 						}
 					}
+					msg += msgSb677.String()
 				} else if !addMeet {
 					msg += " (Google Meet removed)"
 				}
@@ -880,7 +884,7 @@ func formatAttendeeEmails(attendees []*calendar.EventAttendee) string {
 }
 
 // formatAttendeeDetails formats attendee details with response status and flags.
-func formatAttendeeDetails(attendees []*calendar.EventAttendee, indent string) string {
+func formatAttendeeDetails(attendees []*calendar.EventAttendee, _ string) string {
 	if len(attendees) == 0 {
 		return "None"
 	}
@@ -906,7 +910,7 @@ func formatAttendeeDetails(attendees []*calendar.EventAttendee, indent string) s
 }
 
 // formatEventAttachmentDetails formats attachment details for calendar events.
-func formatEventAttachmentDetails(attachments []*calendar.EventAttachment, indent string) string {
+func formatEventAttachmentDetails(attachments []*calendar.EventAttachment, _ string) string {
 	if len(attachments) == 0 {
 		return "None"
 	}
@@ -1009,22 +1013,19 @@ func extractDriveFileID(input string) string {
 	if strings.HasPrefix(input, "https://") {
 		// Try to extract file ID from various Drive URL formats
 		for _, pattern := range []string{"/d/", "/file/d/"} {
-			idx := strings.Index(input, pattern)
-			if idx >= 0 {
-				rest := input[idx+len(pattern):]
-				if slashIdx := strings.IndexAny(rest, "/?"); slashIdx >= 0 {
-					return rest[:slashIdx]
-				}
-				return rest
+			_, after, ok := strings.Cut(input, pattern)
+			if !ok {
+				continue
 			}
+			if slashIdx := strings.IndexAny(after, "/?"); slashIdx >= 0 {
+				return after[:slashIdx]
+			}
+			return after
 		}
 		// Try id= parameter
-		if idx := strings.Index(input, "id="); idx >= 0 {
-			rest := input[idx+3:]
-			if ampIdx := strings.IndexByte(rest, '&'); ampIdx >= 0 {
-				return rest[:ampIdx]
-			}
-			return rest
+		if _, after, ok := strings.Cut(input, "id="); ok {
+			before, _, _ := strings.Cut(after, "&")
+			return before
 		}
 		return ""
 	}

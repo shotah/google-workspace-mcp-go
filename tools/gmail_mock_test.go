@@ -25,7 +25,7 @@ func callHandlerOK(t *testing.T, handler func(context.Context, mcp.CallToolReque
 		t.Fatalf("handler returned error: %v", err)
 	}
 	if result.IsError {
-		tc := result.Content[0].(mcp.TextContent)
+		tc, _ := result.Content[0].(mcp.TextContent)
 		t.Fatalf("handler returned tool error: %s", tc.Text)
 	}
 	if len(result.Content) == 0 {

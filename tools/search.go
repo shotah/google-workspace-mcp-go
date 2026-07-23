@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -26,12 +27,12 @@ func RegisterSearchTools(s *mcpserver.MCPServer, _ server.Config) {
 func newCustomSearchService(ctx context.Context) (*customsearch.Service, string, error) {
 	apiKey := os.Getenv("GOOGLE_PSE_API_KEY")
 	if apiKey == "" {
-		return nil, "", fmt.Errorf("GOOGLE_PSE_API_KEY environment variable not set. Please set it to your Google Custom Search API key")
+		return nil, "", errors.New("GOOGLE_PSE_API_KEY environment variable not set. Please set it to your Google Custom Search API key")
 	}
 
 	cx := os.Getenv("GOOGLE_PSE_ENGINE_ID")
 	if cx == "" {
-		return nil, "", fmt.Errorf("GOOGLE_PSE_ENGINE_ID environment variable not set. Please set it to your Programmable Search Engine ID")
+		return nil, "", errors.New("GOOGLE_PSE_ENGINE_ID environment variable not set. Please set it to your Programmable Search Engine ID")
 	}
 
 	svc, err := customsearch.NewService(ctx, option.WithAPIKey(apiKey))

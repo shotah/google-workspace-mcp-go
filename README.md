@@ -1,5 +1,14 @@
 # google-workspace-mcp-go
 
+<p align="center">
+  <a href="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/ci.yml"><img src="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/release.yml"><img src="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="https://github.com/shotah/google-workspace-mcp-go/actions/workflows/ci.yml"><img src="https://github.com/shotah/google-workspace-mcp-go/raw/gh-pages/badges/coverage.svg" alt="Coverage"></a>
+  <a href="https://pkg.go.dev/github.com/magks/google-workspace-mcp-go"><img src="https://pkg.go.dev/badge/github.com/magks/google-workspace-mcp-go.svg" alt="Go Reference"></a>
+  <img src="https://img.shields.io/github/go-mod/go-version/shotah/google-workspace-mcp-go" alt="Go version">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/shotah/google-workspace-mcp-go" alt="License"></a>
+</p>
+
 Lightweight Go implementation of the [Google Workspace MCP server](https://github.com/taylorwilsdon/google_workspace_mcp) — 137 tools across 12 Google services, single self-contained binary, designed for local AI tool use.
 
 ## Why this exists

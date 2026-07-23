@@ -460,7 +460,7 @@ func TestDriveMockUpdateFile(t *testing.T) {
 		ts := driveFakeServer(t, map[string]any{
 			"/drive/v3/files/file001": func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				if r.Method == "PATCH" {
+				if r.Method == http.MethodPatch {
 					fmt.Fprint(w, `{"id":"file001","name":"Renamed File.txt","webViewLink":"https://drive.google.com/file/d/file001/view"}`)
 				} else {
 					fmt.Fprint(w, `{"id":"file001","name":"Original File.txt","mimeType":"text/plain","webViewLink":"https://drive.google.com/file/d/file001/view"}`)

@@ -2,8 +2,7 @@
 package tools
 
 import (
-	"context"
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 
@@ -41,7 +40,7 @@ func resolveEmail(request mcp.CallToolRequest) (string, error) {
 		return users[0], nil
 	}
 
-	return "", fmt.Errorf("user_google_email is required: provide it as a parameter, set USER_GOOGLE_EMAIL env var, or use --single-user with one credential file")
+	return "", errors.New("user_google_email is required: provide it as a parameter, set USER_GOOGLE_EMAIL env var, or use --single-user with one credential file")
 }
 
 // RegisterAllTools registers tools for all enabled services based on config.
@@ -85,9 +84,4 @@ func RegisterAllTools(s *mcpserver.MCPServer, cfg server.Config) {
 	if allTools || enabled["gmail"] {
 		RegisterAuthTools(s)
 	}
-}
-
-// notImplemented returns a placeholder handler for tools not yet implemented.
-func notImplemented(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return mcp.NewToolResultText("not yet implemented"), nil
 }

@@ -3,9 +3,11 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -54,36 +56,33 @@ func newSheetsService(ctx context.Context, getClient httpClientFunc, email strin
 
 // --- A1 range parsing helpers ---
 
-var (
-	a1PartRegex       = regexp.MustCompile(`^([A-Za-z]*)(\d*)$`)
-	sheetTitleSafeRE  = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
-)
+var a1PartRegex = regexp.MustCompile(`^([A-Za-z]*)(\d*)$`)
 
 // conditionTypes is the set of valid conditional formatting condition types.
 var conditionTypes = map[string]bool{
-	"NUMBER_GREATER":        true,
+	"NUMBER_GREATER":         true,
 	"NUMBER_GREATER_THAN_EQ": true,
-	"NUMBER_LESS":           true,
-	"NUMBER_LESS_THAN_EQ":   true,
-	"NUMBER_EQ":             true,
-	"NUMBER_NOT_EQ":         true,
-	"TEXT_CONTAINS":         true,
-	"TEXT_NOT_CONTAINS":     true,
-	"TEXT_STARTS_WITH":      true,
-	"TEXT_ENDS_WITH":        true,
-	"TEXT_EQ":               true,
-	"DATE_BEFORE":           true,
-	"DATE_ON_OR_BEFORE":     true,
-	"DATE_AFTER":            true,
-	"DATE_ON_OR_AFTER":      true,
-	"DATE_EQ":               true,
-	"DATE_NOT_EQ":           true,
-	"DATE_BETWEEN":          true,
-	"DATE_NOT_BETWEEN":      true,
-	"NOT_BLANK":             true,
-	"BLANK":                 true,
-	"CUSTOM_FORMULA":        true,
-	"ONE_OF_RANGE":          true,
+	"NUMBER_LESS":            true,
+	"NUMBER_LESS_THAN_EQ":    true,
+	"NUMBER_EQ":              true,
+	"NUMBER_NOT_EQ":          true,
+	"TEXT_CONTAINS":          true,
+	"TEXT_NOT_CONTAINS":      true,
+	"TEXT_STARTS_WITH":       true,
+	"TEXT_ENDS_WITH":         true,
+	"TEXT_EQ":                true,
+	"DATE_BEFORE":            true,
+	"DATE_ON_OR_BEFORE":      true,
+	"DATE_AFTER":             true,
+	"DATE_ON_OR_AFTER":       true,
+	"DATE_EQ":                true,
+	"DATE_NOT_EQ":            true,
+	"DATE_BETWEEN":           true,
+	"DATE_NOT_BETWEEN":       true,
+	"NOT_BLANK":              true,
+	"BLANK":                  true,
+	"CUSTOM_FORMULA":         true,
+	"ONE_OF_RANGE":           true,
 }
 
 // gradientPointTypes is the set of valid gradient point types.
@@ -240,7 +239,7 @@ func parseA1Range(rangeName string, sheetInfos []sheetInfo) (*sheetsGridRange, e
 	sheetName, a1Range := splitSheetAndRange(rangeName)
 
 	if len(sheetInfos) == 0 {
-		return nil, fmt.Errorf("spreadsheet has no sheets")
+		return nil, errors.New("spreadsheet has no sheets")
 	}
 
 	var target *sheetInfo
@@ -263,7 +262,7 @@ func parseA1Range(rangeName string, sheetInfos []sheetInfo) (*sheetsGridRange, e
 	}
 
 	if a1Range == "" {
-		return nil, fmt.Errorf("A1-style range must not be empty")
+		return nil, errors.New("A1-style range must not be empty")
 	}
 
 	var startPart, endPart string
@@ -393,7 +392,7 @@ func gridRangeToA1(gr *sheets.GridRange, titles map[int64]string) string {
 		if idx <= 0 {
 			return ""
 		}
-		return fmt.Sprintf("%d", idx)
+		return strconv.FormatInt(idx, 10)
 	}
 	colLabel := func(idx int64) string {
 		if idx <= 0 {
@@ -403,7 +402,7 @@ func gridRangeToA1(gr *sheets.GridRange, titles map[int64]string) string {
 	}
 
 	// For start: use start indices directly (zero-based → display as 1-based row)
-	startL := fmt.Sprintf("%s%s", indexToColumn(int(startCol)), fmt.Sprintf("%d", startRow+1))
+	startL := fmt.Sprintf("%s%s", indexToColumn(int(startCol)), strconv.FormatInt(startRow+1, 10))
 	// For end: indices are exclusive, subtract 1 for display
 	endL := ""
 	if hasEnd {
@@ -430,7 +429,7 @@ func gridRangeToA1(gr *sheets.GridRange, titles map[int64]string) string {
 
 // summarizeConditionalRule produces a concise human-readable summary.
 func summarizeConditionalRule(rule *sheets.ConditionalFormatRule, index int, titles map[int64]string) string {
-	var rangeLabels []string
+	rangeLabels := make([]string, 0, len(rule.Ranges))
 	for _, r := range rule.Ranges {
 		rangeLabels = append(rangeLabels, gridRangeToA1(r, titles))
 	}
@@ -523,7 +522,7 @@ func formatConditionalRulesSection(sheetTitle string, rules []*sheets.Conditiona
 // selectSheet finds a sheet by name, or returns the first if name is empty.
 func selectSheet(infos []sheetInfo, sheetName string) (*sheetInfo, error) {
 	if len(infos) == 0 {
-		return nil, fmt.Errorf("spreadsheet has no sheets")
+		return nil, errors.New("spreadsheet has no sheets")
 	}
 	if sheetName == "" {
 		return &infos[0], nil
@@ -549,7 +548,7 @@ func parseConditionValues(raw any) ([]string, error) {
 	case string:
 		var parsed []any
 		if err := json.Unmarshal([]byte(v), &parsed); err != nil {
-			return nil, fmt.Errorf("condition_values must be a list or a JSON-encoded list")
+			return nil, errors.New("condition_values must be a list or a JSON-encoded list")
 		}
 		var result []string
 		for _, item := range parsed {
@@ -582,16 +581,16 @@ func parseGradientPoints(raw any) ([]gradientPoint, error) {
 	switch v := raw.(type) {
 	case string:
 		if err := json.Unmarshal([]byte(v), &items); err != nil {
-			return nil, fmt.Errorf("gradient_points must be a list or JSON-encoded list of points")
+			return nil, errors.New("gradient_points must be a list or JSON-encoded list of points")
 		}
 	case []any:
 		items = v
 	default:
-		return nil, fmt.Errorf("gradient_points must be a list of point objects")
+		return nil, errors.New("gradient_points must be a list of point objects")
 	}
 
 	if len(items) < 2 || len(items) > 3 {
-		return nil, fmt.Errorf("provide 2 or 3 gradient points (min/max or min/mid/max)")
+		return nil, errors.New("provide 2 or 3 gradient points (min/max or min/mid/max)")
 	}
 
 	var points []gradientPoint
@@ -811,16 +810,13 @@ func registerReadSheetValues(s *mcpserver.MCPServer, getClient httpClientFunc) {
 		fmt.Fprintf(&b, "Successfully read %d rows from range '%s' in spreadsheet %s for %s:",
 			len(values), rangeName, spreadsheetID, email)
 
-		maxRows := 50
-		if len(values) < maxRows {
-			maxRows = len(values)
-		}
+		maxRows := min(len(values), 50)
 		// Determine first row width for padding
 		firstRowLen := 0
 		if len(values) > 0 {
 			firstRowLen = len(values[0])
 		}
-		for i := 0; i < maxRows; i++ {
+		for i := range maxRows {
 			row := values[i]
 			// Pad row with empty strings
 			padded := make([]any, firstRowLen)
@@ -912,12 +908,10 @@ func registerModifySheetValues(s *mcpserver.MCPServer, getClient httpClientFunc)
 		}
 
 		// Convert [][]any to [][]interface{} for the API
-		var apiValues [][]interface{}
+		var apiValues [][]any
 		for _, row := range values {
-			apiRow := make([]interface{}, len(row))
-			for j, cell := range row {
-				apiRow[j] = cell
-			}
+			apiRow := make([]any, len(row))
+			copy(apiRow, row)
 			apiValues = append(apiValues, apiRow)
 		}
 
@@ -1005,7 +999,7 @@ func registerFormatSheetRange(s *mcpserver.MCPServer, getClient httpClientFunc) 
 		if bgColor != "" {
 			r, g, b, ok := parseHexColorSheets(bgColor)
 			if !ok {
-				return mcp.NewToolResultError(fmt.Sprintf("invalid background_color format: %s", bgColor)), nil
+				return mcp.NewToolResultError("invalid background_color format: " + bgColor), nil
 			}
 			cellFormat.BackgroundColor = &sheets.Color{
 				Red: r, Green: g, Blue: b,
@@ -1017,7 +1011,7 @@ func registerFormatSheetRange(s *mcpserver.MCPServer, getClient httpClientFunc) 
 		if txtColor != "" {
 			r, g, b, ok := parseHexColorSheets(txtColor)
 			if !ok {
-				return mcp.NewToolResultError(fmt.Sprintf("invalid text_color format: %s", txtColor)), nil
+				return mcp.NewToolResultError("invalid text_color format: " + txtColor), nil
 			}
 			cellFormat.TextFormat = &sheets.TextFormat{
 				ForegroundColor: &sheets.Color{
@@ -1234,7 +1228,7 @@ func registerAddConditionalFormatting(s *mcpserver.MCPServer, getClient httpClie
 			if bgColor != "" {
 				r, g, b, ok := parseHexColorSheets(bgColor)
 				if !ok {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid background_color: %s", bgColor)), nil
+					return mcp.NewToolResultError("invalid background_color: " + bgColor), nil
 				}
 				format.BackgroundColor = &sheets.Color{
 					Red: r, Green: g, Blue: b,
@@ -1245,7 +1239,7 @@ func registerAddConditionalFormatting(s *mcpserver.MCPServer, getClient httpClie
 			if txtColor != "" {
 				r, g, b, ok := parseHexColorSheets(txtColor)
 				if !ok {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid text_color: %s", txtColor)), nil
+					return mcp.NewToolResultError("invalid text_color: " + txtColor), nil
 				}
 				format.TextFormat = &sheets.TextFormat{
 					ForegroundColor: &sheets.Color{
@@ -1260,7 +1254,7 @@ func registerAddConditionalFormatting(s *mcpserver.MCPServer, getClient httpClie
 				Ranges: []*sheets.GridRange{sheetsRange},
 				BooleanRule: &sheets.BooleanRule{
 					Condition: condition,
-					Format:   format,
+					Format:    format,
 				},
 			}
 			ruleDesc = condTypeNorm
@@ -1523,7 +1517,7 @@ func registerUpdateConditionalFormatting(s *mcpserver.MCPServer, getClient httpC
 				Ranges: rangesToUse,
 				BooleanRule: &sheets.BooleanRule{
 					Condition: condition,
-					Format:   newFormat,
+					Format:    newFormat,
 				},
 			}
 			ruleDesc = ct
@@ -1533,9 +1527,9 @@ func registerUpdateConditionalFormatting(s *mcpserver.MCPServer, getClient httpC
 			Requests: []*sheets.Request{
 				{
 					UpdateConditionalFormatRule: &sheets.UpdateConditionalFormatRuleRequest{
-						Index:   int64(ruleIdx),
-						SheetId: targetInfo.SheetID,
-						Rule:    newRule,
+						Index:           int64(ruleIdx),
+						SheetId:         targetInfo.SheetID,
+						Rule:            newRule,
 						ForceSendFields: []string{"Index"},
 					},
 				},
@@ -1609,8 +1603,8 @@ func registerDeleteConditionalFormatting(s *mcpserver.MCPServer, getClient httpC
 			Requests: []*sheets.Request{
 				{
 					DeleteConditionalFormatRule: &sheets.DeleteConditionalFormatRuleRequest{
-						Index:   int64(ruleIdx),
-						SheetId: targetInfo.SheetID,
+						Index:           int64(ruleIdx),
+						SheetId:         targetInfo.SheetID,
 						ForceSendFields: []string{"Index"},
 					},
 				},

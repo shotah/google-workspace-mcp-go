@@ -91,8 +91,9 @@ func getStructuredTasks(items []*tasks.Task) []*structuredTask {
 		if t.Position != "" {
 			// Position is a string of digits; parse as int for sorting.
 			var pos int64
-			fmt.Sscanf(t.Position, "%d", &pos)
-			positionsById[t.Id] = pos
+			if _, err := fmt.Sscanf(t.Position, "%d", &pos); err == nil {
+				positionsById[t.Id] = pos
+			}
 		}
 	}
 
@@ -942,13 +943,13 @@ func handleMoveTask(getClient httpClientFunc) mcpserver.ToolHandlerFunc {
 
 		var moveDetails []string
 		if destinationTaskList != "" {
-			moveDetails = append(moveDetails, fmt.Sprintf("moved to task list %s", destinationTaskList))
+			moveDetails = append(moveDetails, "moved to task list "+destinationTaskList)
 		}
 		if parent != "" {
-			moveDetails = append(moveDetails, fmt.Sprintf("made a subtask of %s", parent))
+			moveDetails = append(moveDetails, "made a subtask of "+parent)
 		}
 		if previous != "" {
-			moveDetails = append(moveDetails, fmt.Sprintf("positioned after %s", previous))
+			moveDetails = append(moveDetails, "positioned after "+previous)
 		}
 		if len(moveDetails) > 0 {
 			fmt.Fprintf(&sb, "\n- Move Details: %s", strings.Join(moveDetails, ", "))

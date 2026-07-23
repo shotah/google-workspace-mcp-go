@@ -57,7 +57,7 @@ func TestDocsMockCreateDoc(t *testing.T) {
 		ts := driveFakeServer(t, map[string]any{
 			"/v1/documents": func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				if r.Method == "POST" && !strings.Contains(r.URL.Path, ":batchUpdate") {
+				if r.Method == http.MethodPost && !strings.Contains(r.URL.Path, ":batchUpdate") {
 					fmt.Fprint(w, `{"documentId":"newdoc001","title":"My New Doc"}`)
 				}
 			},

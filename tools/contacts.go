@@ -95,13 +95,13 @@ func formatContact(person *people.Person, detailed bool) string {
 	}
 
 	var lines []string
-	lines = append(lines, fmt.Sprintf("Contact ID: %s", contactID))
+	lines = append(lines, "Contact ID: "+contactID)
 
 	// Names
 	if len(person.Names) > 0 {
 		displayName := person.Names[0].DisplayName
 		if displayName != "" {
-			lines = append(lines, fmt.Sprintf("Name: %s", displayName))
+			lines = append(lines, "Name: "+displayName)
 		}
 	}
 
@@ -114,7 +114,7 @@ func formatContact(person *people.Person, detailed bool) string {
 			}
 		}
 		if len(emails) > 0 {
-			lines = append(lines, fmt.Sprintf("Email: %s", strings.Join(emails, ", ")))
+			lines = append(lines, "Email: "+strings.Join(emails, ", "))
 		}
 	}
 
@@ -127,7 +127,7 @@ func formatContact(person *people.Person, detailed bool) string {
 			}
 		}
 		if len(phones) > 0 {
-			lines = append(lines, fmt.Sprintf("Phone: %s", strings.Join(phones, ", ")))
+			lines = append(lines, "Phone: "+strings.Join(phones, ", "))
 		}
 	}
 
@@ -139,10 +139,10 @@ func formatContact(person *people.Person, detailed bool) string {
 			orgParts = append(orgParts, org.Title)
 		}
 		if org.Name != "" {
-			orgParts = append(orgParts, fmt.Sprintf("at %s", org.Name))
+			orgParts = append(orgParts, "at "+org.Name)
 		}
 		if len(orgParts) > 0 {
-			lines = append(lines, fmt.Sprintf("Organization: %s", strings.Join(orgParts, " ")))
+			lines = append(lines, "Organization: "+strings.Join(orgParts, " "))
 		}
 	}
 
@@ -150,7 +150,7 @@ func formatContact(person *people.Person, detailed bool) string {
 		// Addresses
 		if len(person.Addresses) > 0 {
 			if fv := person.Addresses[0].FormattedValue; fv != "" {
-				lines = append(lines, fmt.Sprintf("Address: %s", fv))
+				lines = append(lines, "Address: "+fv)
 			}
 		}
 
@@ -161,7 +161,7 @@ func formatContact(person *people.Person, detailed bool) string {
 				if bday.Year > 0 {
 					bdayStr = fmt.Sprintf("%d/%s", bday.Year, bdayStr)
 				}
-				lines = append(lines, fmt.Sprintf("Birthday: %s", bdayStr))
+				lines = append(lines, "Birthday: "+bdayStr)
 			}
 		}
 
@@ -174,7 +174,7 @@ func formatContact(person *people.Person, detailed bool) string {
 				}
 			}
 			if len(urls) > 0 {
-				lines = append(lines, fmt.Sprintf("URLs: %s", strings.Join(urls, ", ")))
+				lines = append(lines, "URLs: "+strings.Join(urls, ", "))
 			}
 		}
 
@@ -185,7 +185,7 @@ func formatContact(person *people.Person, detailed bool) string {
 				if len(bio) > 200 {
 					bio = bio[:200] + "..."
 				}
-				lines = append(lines, fmt.Sprintf("Notes: %s", bio))
+				lines = append(lines, "Notes: "+bio)
 			}
 		}
 
@@ -198,7 +198,7 @@ func formatContact(person *people.Person, detailed bool) string {
 				}
 			}
 			if len(sourceTypes) > 0 {
-				lines = append(lines, fmt.Sprintf("Sources: %s", strings.Join(sourceTypes, ", ")))
+				lines = append(lines, "Sources: "+strings.Join(sourceTypes, ", "))
 			}
 		}
 	}
@@ -231,10 +231,7 @@ func registerListContacts(s *mcpserver.MCPServer, getClient httpClientFunc) {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		pageSize := request.GetInt("page_size", 100)
-		if pageSize > 1000 {
-			pageSize = 1000
-		}
+		pageSize := min(request.GetInt("page_size", 100), 1000)
 		pageToken := request.GetString("page_token", "")
 		sortOrder := request.GetString("sort_order", "")
 
@@ -355,10 +352,7 @@ func registerSearchContacts(s *mcpserver.MCPServer, getClient httpClientFunc) {
 		// Warm up the search cache if needed
 		warmupSearchCache(svc, email)
 
-		pageSize := request.GetInt("page_size", 30)
-		if pageSize > 30 {
-			pageSize = 30
-		}
+		pageSize := min(request.GetInt("page_size", 30), 30)
 
 		result, err := svc.People.SearchContacts().
 			Query(query).
@@ -409,10 +403,7 @@ func registerListContactGroups(s *mcpserver.MCPServer, getClient httpClientFunc)
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		pageSize := request.GetInt("page_size", 100)
-		if pageSize > 1000 {
-			pageSize = 1000
-		}
+		pageSize := min(request.GetInt("page_size", 100), 1000)
 		pageToken := request.GetString("page_token", "")
 
 		call := svc.ContactGroups.List().
@@ -582,10 +573,7 @@ func registerGetContactGroup(s *mcpserver.MCPServer, getClient httpClientFunc) {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		maxMembers := request.GetInt("max_members", 100)
-		if maxMembers > 1000 {
-			maxMembers = 1000
-		}
+		maxMembers := min(request.GetInt("max_members", 100), 1000)
 
 		result, err := svc.ContactGroups.Get(resourceName).
 			MaxMembers(int64(maxMembers)).
@@ -937,7 +925,7 @@ func registerBatchUpdateContacts(s *mcpserver.MCPServer, getClient httpClientFun
 			person.Etag = etag
 
 			// Track update fields
-			for _, f := range strings.Split(updatePersonFields(person), ",") {
+			for f := range strings.SplitSeq(updatePersonFields(person), ",") {
 				if f != "" {
 					updateFieldsSet[f] = true
 				}
@@ -1266,4 +1254,3 @@ func registerModifyContactGroupMembers(s *mcpserver.MCPServer, getClient httpCli
 		return mcp.NewToolResultText(sb.String()), nil
 	})
 }
-

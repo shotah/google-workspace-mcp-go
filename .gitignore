@@ -1,5 +1,7 @@
-# Binary
-google-workspace-mcp-go
+# Built binaries
+/bin/
+/google-workspace-mcp-go
+/google-workspace-mcp-go.exe
 
 # Credentials and secrets
 .env
@@ -17,10 +19,17 @@ client_secret.json
 .DS_Store
 Thumbs.db
 
-# Test artifacts
+# Test / coverage artifacts
 *.test
 *.out
+coverage
+coverage.out
+coverage.txt
 coverage.html
+*.coverprofile
+
+# Local badge output (CI publishes to gh-pages)
+/badges/
 
 # Dev artifacts
 prd.json

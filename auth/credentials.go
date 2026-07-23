@@ -67,7 +67,7 @@ func (s *LocalDirectoryCredentialStore) GetCredential(email string) (*StoredCred
 
 // StoreCredential writes a credential file for the given email.
 func (s *LocalDirectoryCredentialStore) StoreCredential(email string, cred *StoredCredential) error {
-	if err := os.MkdirAll(s.Dir, 0700); err != nil {
+	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
 		return fmt.Errorf("creating credential directory: %w", err)
 	}
 
@@ -89,7 +89,7 @@ func (s *LocalDirectoryCredentialStore) StoreCredential(email string, cred *Stor
 	}
 
 	path := s.credentialPath(email)
-	return os.WriteFile(path, data, 0600)
+	return os.WriteFile(path, data, 0o600)
 }
 
 // DeleteCredential removes the credential file for the given email.

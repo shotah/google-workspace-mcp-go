@@ -21,9 +21,9 @@ func TestGmailFormatSearchResults(t *testing.T) {
 		wantExact     string // only checked if non-empty
 	}{
 		{
-			name:     "no messages",
-			messages: []*gmail.Message{},
-			query:    "from:test@example.com",
+			name:      "no messages",
+			messages:  []*gmail.Message{},
+			query:     "from:test@example.com",
 			wantExact: "No messages found for query: 'from:test@example.com'",
 		},
 		{
@@ -860,7 +860,6 @@ func TestGmailBuildRawMessage(t *testing.T) {
 		references   string
 		attachments  []emailAttachment
 		wantContains []string
-		wantErr      bool
 	}{
 		{
 			name:       "simple plain text message",
@@ -963,16 +962,7 @@ func TestGmailBuildRawMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			raw, err := buildRawMessage(tt.from, tt.fromName, tt.to, tt.cc, tt.bcc, tt.subject, tt.body, tt.bodyFormat, tt.inReplyTo, tt.references, tt.attachments)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			raw := buildRawMessage(tt.from, tt.fromName, tt.to, tt.cc, tt.bcc, tt.subject, tt.body, tt.bodyFormat, tt.inReplyTo, tt.references, tt.attachments)
 
 			decoded := decodeRaw(t, raw)
 			for _, want := range tt.wantContains {
@@ -1153,9 +1143,9 @@ func TestGmailGetStringSlice(t *testing.T) {
 
 func TestGmailGetAttachments(t *testing.T) {
 	tests := []struct {
-		name string
-		args map[string]any
-		want int
+		name  string
+		args  map[string]any
+		want  int
 		check func(t *testing.T, atts []emailAttachment)
 	}{
 		{
